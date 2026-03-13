@@ -1,3 +1,3 @@
-from lmtk.core import get_response, Chat
+from lmtk.core import Chat, get_response
 
 __all__ = ["get_response", "Chat"]

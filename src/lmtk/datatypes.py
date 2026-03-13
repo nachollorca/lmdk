@@ -1,10 +1,11 @@
 """Contains the data contracts used across the app."""
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 
 from pydantic import BaseModel
 
 # TODO: see if this module could actually be merged into core.py
+
 
 @dataclass
 class Message:
@@ -13,6 +14,7 @@ class Message:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
 
 @dataclass
 class UserMessage(Message):

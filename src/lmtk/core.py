@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from lmtk.datatypes import Message, ModelResponse
 
+
 # TODO: think if this should be get_response or generate_response
 def get_response(
     model: str,
@@ -21,6 +22,7 @@ def get_response(
 
 class Chat:
     """Docstring."""
+
     def __init__(
         self,
         model: str,

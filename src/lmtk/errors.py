@@ -1,5 +1,6 @@
 """Error registry."""
 
+
 # TODO: check and learn about vanilla python errors and what is what
 class MissingAPIKeyError(RuntimeError):
     def __init__(self, env_var_name: str) -> None:
