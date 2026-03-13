@@ -48,7 +48,7 @@ convention = "google"
 combine-as-imports = true
 
 [tool.ruff.lint]
-select = ["D"]
+select = ["D", "E", "F"]
 ignore = ["D105"]
 
 [tool.coverage.run]
