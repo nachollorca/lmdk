@@ -1,8 +1,8 @@
 """Secrets management.
 
 Stores and retrieves API keys from `$XDG_CONFIG_HOME/lmtk/secrets.yaml`
-(defaults to `~/.config/lmtk/secrets.yaml`).  Environment variables
-always take precedence over stored secrets.
+Defaults to `~/.config/lmtk/secrets.yaml`
+Environment variables always take precedence over stored secrets
 """
 
 # TODO: does it make sense that env vars take precedence over stored secrets? If not, change it

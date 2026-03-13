@@ -13,7 +13,7 @@ def get_response(
     output_schema: BaseModel | None = None,
     stream: bool = False,
     generation_kargs: dict = {"temperature": 0},
-) -> ModelResponse:
+) -> ModelResponse:  # type: ignore
     """Docstring."""
     if output_schema and stream:
         raise RuntimeError(f"Only `stream` or `output_schema` can be set, not both.")
