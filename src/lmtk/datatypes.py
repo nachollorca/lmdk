@@ -69,11 +69,7 @@ class CompletionResponse:
 
     @property
     def message(self):
-        """Converts the response to an AssistantMessage object.
-
-        Returns:
-            AssistantMessage: A message object with role='assistant' containing the response content.
-        """
+        """Converts the response to an AssistantMessage object."""
         return AssistantMessage(self.content)
 
     @property
@@ -166,7 +162,7 @@ class CompletionResponse:
         """Extracts the output for aggregated responses (when parsed is a list from from_list).
 
         Processes a list of parsed outputs by:
-        1. Computing individual outputs using the same unwrapping logic as _output_for_single_response
+        1. Computing individual outputs using the unwrapping logic in _output_for_single_response
         2. Flattening the results if all individual outputs are lists
 
         This is useful when aggregating multiple responses where each contains a list of items,
