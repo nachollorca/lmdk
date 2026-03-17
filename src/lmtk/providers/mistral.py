@@ -18,7 +18,6 @@ class MistralProvider(Provider):
 
     @classmethod
     def _get_response(cls, request: CompletionRequest, api_key: str) -> CompletionResponse:
-        """Send a chat completion request to the Mistral API."""
         api_messages: list[dict] = []
         if request.system_instruction:
             api_messages.append({"role": "system", "content": request.system_instruction})
@@ -50,5 +49,4 @@ class MistralProvider(Provider):
 
     @classmethod
     def _stream(cls, request: CompletionRequest, api_key: str) -> Iterator[str]:
-        """Not yet implemented."""
         raise NotImplementedError
