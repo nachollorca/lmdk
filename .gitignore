@@ -120,6 +120,7 @@ notebooks/
 # prototyping
 sketchbook.ipynb
 sketchscript.py
+debug.py
 
 # credentials
 gcp_credentials.json
