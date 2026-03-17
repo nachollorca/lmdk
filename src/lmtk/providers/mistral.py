@@ -1,9 +1,9 @@
 """Implements the provider to use models hosted in Mistral API."""
 
-import json
 import time
-import urllib.request
 from collections.abc import Iterator
+
+import requests
 
 from lmtk.datatypes import CompletionRequest, CompletionResponse
 from lmtk.provider import Provider
@@ -30,20 +30,16 @@ class MistralProvider(Provider):
             **(request.generation_kwargs or {}),
         }
 
-        data = json.dumps(payload).encode()
-        req = urllib.request.Request(
-            MISTRAL_API_URL,
-            data=data,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}",
-            },
-        )
-
         start = time.perf_counter()
-        with urllib.request.urlopen(req) as response:
-            body = json.loads(response.read())
+        response = requests.post(
+            MISTRAL_API_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
         latency = time.perf_counter() - start
+
+        cls._check_response(response)
+        body = response.json()
 
         return CompletionResponse(
             content=body["choices"][0]["message"]["content"],
