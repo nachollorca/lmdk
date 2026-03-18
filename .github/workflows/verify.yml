@@ -20,9 +20,6 @@ jobs:
     name: verify
     runs-on: ubuntu-latest
 
-
-
-
     steps:
     - uses: actions/checkout@v4
 
@@ -32,18 +29,8 @@ jobs:
     - name: Install just
       uses: extractions/setup-just@v3
 
-    - name: Set up access to private PyPI
-      uses: extractions/netrc@v2
-      with:
-        machine: pypi.ailab.verbi.de
-        username: ${{ secrets.PYPI_USERNAME }}
-        password: ${{ secrets.PYPI_PASSWORD }}
-
     - name: Install the project
       run: just sync
-
-    - name: Run tests
-      run: just test
 
     - name: Run linting
       run: just format
@@ -53,3 +40,6 @@ jobs:
 
     - name: Run complexity analysis
       run: just analyze-complexity
+
+    - name: Run tests
+      run: just test

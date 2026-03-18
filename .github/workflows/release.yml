@@ -1,13 +1,3 @@
-# This workflow
-# (1) determine the next version number
-# (2) stamp the version number
-# (3) run the build command
-# (4) build the changelog
-# (5) commit the changes
-# (6) tag the commit
-# (7) publish the commit & tag and lastly
-# (8) create a GitHub release
-
 name: Semantic Release
 
 on:
@@ -31,41 +21,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Python Semantic Release
         id: release
         uses: python-semantic-release/python-semantic-release@v10.4.1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           git_committer_name: "github-actions"
           git_committer_email: "actions@users.noreply.github.com"
-
-      - name: Setup netrc for private PyPI
-        uses: extractions/netrc@v2
-        if: steps.release.outputs.released == 'true'
-        with:
-          machine: pypi.ailab.verbi.de
-          username: ${{ secrets.PYPI_USERNAME }}
-          password: ${{ secrets.PYPI_PASSWORD }}
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        if: steps.release.outputs.released == 'true'
-
-      - name: Publish to private PyPI
-        if: steps.release.outputs.released == 'true'
-        run: |
-          uv build && \
-          uv publish dist/* --publish-url https://pypi.ailab.verbi.de/ \
-            --username ${{ secrets.PYPI_USERNAME }} \
-            --password ${{ secrets.PYPI_PASSWORD }}
 
       - name: Publish package distributions to GitHub Releases
         uses: python-semantic-release/publish-action@v10.4.1
         if: steps.release.outputs.released == 'true'
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ steps.release.outputs.tag }}
