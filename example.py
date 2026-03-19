@@ -21,7 +21,8 @@ from lmtk.datatypes import AssistantMessage, UserMessage
 
 # ── Configuration ──────────────────────────────────────────────────────────
 # Change this to test a different provider or model.
-MODEL = "mistral:mistral-small-2603"
+# MODEL = "mistral:mistral-small-2603"
+MODEL = "vertex:gemini-2.5-flash@europe-west4"
 SEPARATOR = "=" * 60
 
 
