@@ -5,7 +5,8 @@ from unittest.mock import MagicMock, patch
 
 from pydantic import BaseModel
 
-from lmtk.datatypes import CompletionRequest, CompletionResponse, UserMessage
+from lmtk.datatypes import CompletionRequest, UserMessage
+from lmtk.provider import RawResponse
 from lmtk.providers.mistral import MistralProvider
 
 # ---------------------------------------------------------------------------
@@ -93,22 +94,20 @@ class TestBuildMessages:
 
 
 # ---------------------------------------------------------------------------
-# _get_full_response — basic text completion
+# _send_request — basic text completion
 # ---------------------------------------------------------------------------
 
 
-class TestGetFullResponse:
+class TestSendRequest:
     def test_basic_text_completion(self):
         mock_resp = _mock_chat_response(content="Hello there!")
         with patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = MistralProvider._get_full_response(_make_request(), api_key="test-key")
+            result = MistralProvider._send_request(_make_request(), api_key="test-key")
 
-        assert isinstance(result, CompletionResponse)
+        assert isinstance(result, RawResponse)
         assert result.content == "Hello there!"
         assert result.input_tokens == 10
         assert result.output_tokens == 5
-        assert result.parsed is None
-        assert result.latency > 0
 
         # Verify the POST call
         call_kwargs = mock_post.call_args
@@ -120,24 +119,22 @@ class TestGetFullResponse:
         mock_resp = _mock_chat_response()
         request = _make_request(generation_kwargs={"temperature": 0.9, "max_tokens": 10})
         with patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post:
-            MistralProvider._get_full_response(request, api_key="test-key")
+            MistralProvider._send_request(request, api_key="test-key")
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         assert payload["temperature"] == 0.9
         assert payload["max_tokens"] == 10
 
-    def test_structured_output_simple(self):
+    def test_structured_output_payload(self):
+        """Verify that response_format is included for structured output."""
         content = '{"name": "Alice", "age": 30}'
         mock_resp = _mock_chat_response(content=content)
         request = _make_request(output_schema=Person)
 
         with patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = MistralProvider._get_full_response(request, api_key="test-key")
+            result = MistralProvider._send_request(request, api_key="test-key")
 
         assert result.content == content
-        assert isinstance(result.parsed, Person)
-        assert result.parsed.name == "Alice"
-        assert result.parsed.age == 30
 
         # Verify response_format was included in payload
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
@@ -146,7 +143,8 @@ class TestGetFullResponse:
         assert rf["json_schema"]["name"] == "Person"
         assert "schema" in rf["json_schema"]
 
-    def test_structured_output_nested(self):
+    def test_structured_output_nested_payload(self):
+        """Verify that nested schemas produce the correct response_format."""
         content = json.dumps(
             {
                 "ingredients": [
@@ -158,12 +156,15 @@ class TestGetFullResponse:
         mock_resp = _mock_chat_response(content=content)
         request = _make_request(output_schema=Recipe)
 
-        with patch("lmtk.provider.requests.post", return_value=mock_resp):
-            result = MistralProvider._get_full_response(request, api_key="test-key")
+        with patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post:
+            result = MistralProvider._send_request(request, api_key="test-key")
 
-        assert isinstance(result.parsed, Recipe)
-        assert len(result.parsed.ingredients) == 2
-        assert result.parsed.ingredients[0].name == "tomato"
+        assert result.content == content
+
+        payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
+        rf = payload["response_format"]
+        assert rf["type"] == "json_schema"
+        assert rf["json_schema"]["name"] == "Recipe"
 
 
 # ---------------------------------------------------------------------------

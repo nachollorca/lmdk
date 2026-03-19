@@ -50,7 +50,20 @@ class CompletionRequest:
 
 
 @dataclass
-class CompletionResponse:
+class RawResponse:
+    """Lightweight intermediate result returned by provider implementations.
+
+    Carries the extracted content and token counts so the base class can
+    handle timing, schema validation, and ``CompletionResponse`` construction.
+    """
+
+    content: str
+    input_tokens: int
+    output_tokens: int
+
+
+@dataclass
+class CompletionResponse(RawResponse):
     """The result of a completion call, including usage and parsed pydantic objects.
 
     Attributes:
@@ -62,10 +75,7 @@ class CompletionResponse:
             if no output schema was specified.
     """
 
-    content: str
-    input_tokens: int
-    output_tokens: int
-    latency: float
+    latency: float = 0.0
     parsed: BaseModel | list | None = None
 
     @property

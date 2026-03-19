@@ -1,13 +1,15 @@
 """Abstract base class for LLM providers."""
 
 import importlib
+import json
 import os
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 
 import requests
 
-from lmtk.datatypes import CompletionRequest, CompletionResponse
+from lmtk.datatypes import CompletionRequest, CompletionResponse, RawResponse
 from lmtk.errors import STATUS_TO_ERROR, AuthenticationError, ProviderError
 
 
@@ -17,9 +19,10 @@ class Provider(ABC):
     Subclasses must define the following class attributes:
         api_key_name: The environment variable name for the provider's API key.
 
-    The base class handles credential resolution and validation.
-    Concrete providers only implement ``_get_response`` and ``_stream``,
-    receiving the API key as a parameter.
+    The base class handles credential resolution, latency measurement,
+    structured-output validation, and ``CompletionResponse`` construction.
+    Concrete providers implement ``_send_request``, ``_stream_response``,
+    and ``_build_auth_headers``, receiving the API key as a parameter.
     """
 
     api_key_name: str
@@ -30,18 +33,47 @@ class Provider(ABC):
     ) -> CompletionResponse | Iterator[str]:
         """Resolve API credentials and delegate to the provider implementation.
 
+        For non-streaming calls the base class wraps the provider's
+        ``_send_request`` with latency measurement, optional structured-output
+        parsing, and ``CompletionResponse`` construction.
+
         See ``lmtk.core.get_response`` for parameter docs and defaults.
         """
         api_key = cls._resolve_api_key()
 
         if stream:
             return cls._stream_response(request, api_key)
-        return cls._get_full_response(request, api_key)
+
+        start = time.perf_counter()
+        raw = cls._send_request(request, api_key)
+        latency = time.perf_counter() - start
+
+        parsed = None
+        if request.output_schema:
+            parsed = request.output_schema.model_validate_json(raw.content)
+
+        return CompletionResponse(
+            content=raw.content,
+            input_tokens=raw.input_tokens,
+            output_tokens=raw.output_tokens,
+            latency=latency,
+            parsed=parsed,
+        )
 
     @classmethod
     @abstractmethod
-    def _get_full_response(cls, request: CompletionRequest, api_key: str) -> CompletionResponse:
-        """Provider-specific response generation."""
+    def _build_auth_headers(cls, api_key: str) -> dict:
+        """Return provider-specific authentication headers."""
+        ...
+
+    @classmethod
+    @abstractmethod
+    def _send_request(cls, request: CompletionRequest, api_key: str) -> RawResponse:
+        """Make the API call and return the raw content and token counts.
+
+        Implementations should NOT measure latency, validate output schemas,
+        or build ``CompletionResponse`` objects -- the base class handles that.
+        """
         ...
 
     @classmethod
@@ -49,6 +81,21 @@ class Provider(ABC):
     def _stream_response(cls, request: CompletionRequest, api_key: str) -> Iterator[str]:
         """Stream chat completion tokens from the provider."""
         ...
+
+    @classmethod
+    def _iter_sse_chunks(cls, response: requests.Response) -> Iterator[dict]:
+        """Parse a Server-Sent Events stream and yield JSON-decoded chunks.
+
+        Handles the ``data: ...`` framing and the ``[DONE]`` sentinel that
+        most LLM APIs use for streaming responses.
+        """
+        for line in response.iter_lines(decode_unicode=True):
+            if not line or not line.startswith("data: "):
+                continue
+            data = line[len("data: ") :]
+            if data.strip() == "[DONE]":
+                break
+            yield json.loads(data)
 
     @classmethod
     def _make_request(

@@ -1,11 +1,9 @@
 """Implements the provider to use models hosted in Mistral API."""
 
-import json
-import time
 from collections.abc import Iterator
 
-from lmtk.datatypes import CompletionRequest, CompletionResponse
-from lmtk.provider import Provider
+from lmtk.datatypes import CompletionRequest
+from lmtk.provider import Provider, RawResponse
 
 MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
 
@@ -14,6 +12,11 @@ class MistralProvider(Provider):
     """Provider for models hosted on the Mistral API."""
 
     api_key_name = "MISTRAL_API_KEY"
+
+    @classmethod
+    def _build_auth_headers(cls, api_key: str) -> dict:
+        """Return Mistral Bearer-token authentication headers."""
+        return {"Authorization": f"Bearer {api_key}"}
 
     @classmethod
     def _build_messages(cls, request: CompletionRequest) -> list[dict]:
@@ -25,7 +28,7 @@ class MistralProvider(Provider):
         return api_messages
 
     @classmethod
-    def _get_full_response(cls, request: CompletionRequest, api_key: str) -> CompletionResponse:
+    def _send_request(cls, request: CompletionRequest, api_key: str) -> RawResponse:
         payload: dict = {
             "model": request.model_id,
             "messages": cls._build_messages(request),
@@ -41,27 +44,17 @@ class MistralProvider(Provider):
                 },
             }
 
-        start = time.perf_counter()
         response = cls._make_request(
             MISTRAL_API_URL,
             json=payload,
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers=cls._build_auth_headers(api_key),
         )
-        latency = time.perf_counter() - start
 
         body = response.json()
-        content = body["choices"][0]["message"]["content"]
-
-        parsed = None
-        if request.output_schema:
-            parsed = request.output_schema.model_validate_json(content)
-
-        return CompletionResponse(
-            content=content,
+        return RawResponse(
+            content=body["choices"][0]["message"]["content"],
             input_tokens=body["usage"]["prompt_tokens"],
             output_tokens=body["usage"]["completion_tokens"],
-            latency=latency,
-            parsed=parsed,
         )
 
     @classmethod
@@ -76,17 +69,11 @@ class MistralProvider(Provider):
         response = cls._make_request(
             MISTRAL_API_URL,
             json=payload,
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers=cls._build_auth_headers(api_key),
             stream=True,
         )
 
-        for line in response.iter_lines(decode_unicode=True):
-            if not line or not line.startswith("data: "):
-                continue
-            data = line[len("data: ") :]
-            if data.strip() == "[DONE]":
-                break
-            chunk = json.loads(data)
+        for chunk in cls._iter_sse_chunks(response):
             choices = chunk.get("choices", [])
             if choices:
                 token = choices[0].get("delta", {}).get("content", "")

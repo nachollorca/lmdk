@@ -7,6 +7,7 @@ import pytest
 from lmtk.core import get_response, get_response_batch
 from lmtk.datatypes import CompletionResponse, UserMessage
 from lmtk.errors import AllModelsFailedError, ProviderError
+from lmtk.provider import RawResponse
 
 # ---------------------------------------------------------------------------
 # get_response — input normalization
@@ -20,7 +21,7 @@ class TestGetResponseInputs:
 
         def spy(request, api_key):
             captured["messages"] = request.messages
-            return CompletionResponse(content="ok", input_tokens=0, output_tokens=0, latency=0)
+            return RawResponse(content="ok", input_tokens=0, output_tokens=0)
 
         patch_load_provider.response_fn = spy
         get_response(model="fake:model", messages="hello")
@@ -35,7 +36,7 @@ class TestGetResponseInputs:
 
         def spy(request, api_key):
             captured["kwargs"] = request.generation_kwargs
-            return CompletionResponse(content="ok", input_tokens=0, output_tokens=0, latency=0)
+            return RawResponse(content="ok", input_tokens=0, output_tokens=0)
 
         patch_load_provider.response_fn = spy
         get_response(model="fake:model", messages="hi")
@@ -47,7 +48,7 @@ class TestGetResponseInputs:
 
         def spy(request, api_key):
             captured["kwargs"] = request.generation_kwargs
-            return CompletionResponse(content="ok", input_tokens=0, output_tokens=0, latency=0)
+            return RawResponse(content="ok", input_tokens=0, output_tokens=0)
 
         patch_load_provider.response_fn = spy
         get_response(model="fake:model", messages="hi", generation_kwargs={"temperature": 0.7})
@@ -114,9 +115,7 @@ class TestGetResponseFallback:
             call_count["n"] += 1
             if call_count["n"] == 1:
                 raise RuntimeError("first model down")
-            return CompletionResponse(
-                content="from fallback", input_tokens=0, output_tokens=0, latency=0
-            )
+            return RawResponse(content="from fallback", input_tokens=0, output_tokens=0)
 
         patch_load_provider.response_fn = fail_then_succeed
 
@@ -156,7 +155,7 @@ class TestGetResponseBatch:
     def test_returns_results_in_order(self, patch_load_provider):
         def echo(request, api_key):
             text = request.messages[0].content
-            return CompletionResponse(content=text, input_tokens=0, output_tokens=0, latency=0)
+            return RawResponse(content=text, input_tokens=0, output_tokens=0)
 
         patch_load_provider.response_fn = echo
 
@@ -174,7 +173,7 @@ class TestGetResponseBatch:
         def fail_on_second(request, api_key):
             if request.messages[0].content == "fail":
                 raise RuntimeError("bad input")
-            return CompletionResponse(content="ok", input_tokens=0, output_tokens=0, latency=0)
+            return RawResponse(content="ok", input_tokens=0, output_tokens=0)
 
         patch_load_provider.response_fn = fail_on_second
 

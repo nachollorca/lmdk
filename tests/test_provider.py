@@ -6,7 +6,7 @@ import pytest
 
 from lmtk.datatypes import CompletionRequest, CompletionResponse, UserMessage
 from lmtk.errors import AuthenticationError, InternalServerError, ProviderError, RateLimitError
-from lmtk.provider import Provider, load_provider
+from lmtk.provider import Provider, RawResponse, load_provider
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -54,7 +54,7 @@ class TestProviderGetResponse:
         assert list(result) == ["chunk1", "chunk2"]
 
     def test_custom_response_fn(self, fake_provider):
-        custom = CompletionResponse(content="custom", input_tokens=0, output_tokens=0, latency=0)
+        custom = RawResponse(content="custom", input_tokens=0, output_tokens=0)
         fake_provider.response_fn = lambda req, key: custom
 
         result = fake_provider.get_response(request=_make_request(), stream=False)
@@ -118,6 +118,6 @@ class TestLoadProvider:
             load_provider("nonexistent_provider_xyz")
 
     def test_stub_provider_raises_attribute_error(self):
-        """vertex.py exists but has no VertexProvider class yet."""
+        """llamacpp.py exists but has no VertexProvider class yet."""
         with pytest.raises(AttributeError):
-            load_provider("vertex")
+            load_provider("llamacpp")

@@ -30,3 +30,6 @@ analyze-complexity:
 
 run file:
     uv run --env-file .env {{file}}
+
+validate model="":
+    uv run --env-file .env example.py {{model}}

@@ -11,17 +11,16 @@ from lmtk.datatypes import (
     Message,
     UserMessage,
 )
-from lmtk.provider import Provider
+from lmtk.provider import Provider, RawResponse
 
 # ---------------------------------------------------------------------------
 # FakeProvider — a concrete Provider for testing the abstract layer
 # ---------------------------------------------------------------------------
 
-_DEFAULT_RESPONSE = CompletionResponse(
+_DEFAULT_RAW = RawResponse(
     content="fake response",
     input_tokens=10,
     output_tokens=5,
-    latency=0.1,
 )
 
 
@@ -35,14 +34,18 @@ class FakeProvider(Provider):
     api_key_name: str = "FAKE_API_KEY"
 
     # Callables that tests can override
-    response_fn: Callable[[CompletionRequest, str], CompletionResponse] | None = None
+    response_fn: Callable[[CompletionRequest, str], RawResponse] | None = None
     stream_fn: Callable[[CompletionRequest, str], Iterator[str]] | None = None
 
     @classmethod
-    def _get_full_response(cls, request: CompletionRequest, api_key: str) -> CompletionResponse:
+    def _build_auth_headers(cls, api_key: str) -> dict:
+        return {"Authorization": f"Bearer {api_key}"}
+
+    @classmethod
+    def _send_request(cls, request: CompletionRequest, api_key: str) -> RawResponse:
         if cls.response_fn is not None:
             return cls.response_fn(request, api_key)
-        return _DEFAULT_RESPONSE
+        return _DEFAULT_RAW
 
     @classmethod
     def _stream_response(cls, request: CompletionRequest, api_key: str) -> Iterator[str]:
