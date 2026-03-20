@@ -28,14 +28,16 @@ class MistralProvider(Provider):
         return api_messages
 
     @classmethod
-    def _send_request(cls, request: CompletionRequest, api_key: str) -> RawResponse:
+    def _build_payload(cls, request: CompletionRequest, stream: bool = False) -> dict:
+        """Build the full request payload for the Mistral API."""
         payload: dict = {
             "model": request.model_id,
             "messages": cls._build_messages(request),
+            "stream": stream,
             **(request.generation_kwargs or {}),
         }
 
-        if request.output_schema:
+        if request.output_schema and not stream:
             payload["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
@@ -43,10 +45,13 @@ class MistralProvider(Provider):
                     "schema": request.output_schema.model_json_schema(),
                 },
             }
+        return payload
 
+    @classmethod
+    def _send_request(cls, request: CompletionRequest, api_key: str) -> RawResponse:
         response = cls._make_request(
             MISTRAL_API_URL,
-            json=payload,
+            json=cls._build_payload(request, stream=False),
             headers=cls._build_auth_headers(api_key),
         )
 
@@ -59,16 +64,9 @@ class MistralProvider(Provider):
 
     @classmethod
     def _stream_response(cls, request: CompletionRequest, api_key: str) -> Iterator[str]:
-        payload: dict = {
-            "model": request.model_id,
-            "messages": cls._build_messages(request),
-            "stream": True,
-            **(request.generation_kwargs or {}),
-        }
-
         response = cls._make_request(
             MISTRAL_API_URL,
-            json=payload,
+            json=cls._build_payload(request, stream=True),
             headers=cls._build_auth_headers(api_key),
             stream=True,
         )

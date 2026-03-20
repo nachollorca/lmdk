@@ -16,13 +16,24 @@ from lmtk.errors import STATUS_TO_ERROR, AuthenticationError, ProviderError
 class Provider(ABC):
     """Interface that all LLM providers must implement.
 
-    Subclasses must define the following class attributes:
+    Subclasses must define this class attribute:
         api_key_name: The environment variable name for the provider's API key.
 
-    The base class handles credential resolution, latency measurement,
-    structured-output validation, and ``CompletionResponse`` construction.
-    Concrete providers implement ``_send_request``, ``_stream_response``,
-    and ``_build_auth_headers``, receiving the API key as a parameter.
+    The main method in the base class (``get_response``) handles:
+        - credential resolution (``_resolve_api_key``)
+        - latency measurement
+        - structured-output validation
+        - ``CompletionResponse`` construction
+
+    It also provides utilities to be used in the concrete providers:
+        - ``_iter_sse_chunks`` to recieve streamed responses
+        - ``_make_request`` to make the POST HTTP request and handle errors
+
+    Concrete providers implement:
+        - ``_build_auth_headers`` to build the HTTP credentials required by the Provider
+        - ``_send_request`` to build the HTTP body,  call ``Provider._make_request`` and
+            optionally parse structured output
+        - ``_stream_response`` to build the HTTP body and parse the streamed tokens
     """
 
     api_key_name: str

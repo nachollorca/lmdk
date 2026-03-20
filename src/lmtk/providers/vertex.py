@@ -218,12 +218,10 @@ class VertexProvider(Provider):
     def _send_request(cls, request: CompletionRequest, api_key: str) -> RawResponse:
         model, location = cls._parse_model_id(request.model_id)
         project_id = cls._resolve_project_id()
-        url = cls._build_url(model, location, project_id, stream=False)
-        payload = cls._build_payload(request)
 
         response = cls._make_request(
-            url,
-            json=payload,
+            cls._build_url(model, location, project_id, stream=False),
+            json=cls._build_payload(request),
             headers=cls._build_auth_headers(api_key),
         )
 
@@ -241,12 +239,10 @@ class VertexProvider(Provider):
     def _stream_response(cls, request: CompletionRequest, api_key: str) -> Iterator[str]:
         model, location = cls._parse_model_id(request.model_id)
         project_id = cls._resolve_project_id()
-        url = cls._build_url(model, location, project_id, stream=True)
-        payload = cls._build_payload(request)
 
         response = cls._make_request(
-            url,
-            json=payload,
+            cls._build_url(model, location, project_id, stream=True),
+            json=cls._build_payload(request),
             headers=cls._build_auth_headers(api_key),
             stream=True,
         )
