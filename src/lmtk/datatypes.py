@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from itertools import chain
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
@@ -62,9 +62,15 @@ class RawResponse:
     output_tokens: int
 
 
+T = TypeVar("T", bound=BaseModel | list | None)
+
+
 @dataclass
-class CompletionResponse(RawResponse):
+class CompletionResponse(RawResponse, Generic[T]):
     """The result of a completion call, including usage and parsed pydantic objects.
+
+    You can hint the type of the expected object in ``.parsed`` field using annotation
+    ``ParsedResponse[MyPydanticModel]``.
 
     Attributes:
         content: The raw string response from the LLM.
@@ -76,7 +82,7 @@ class CompletionResponse(RawResponse):
     """
 
     latency: float = 0.0
-    parsed: BaseModel | list | None = None
+    parsed: T | None = None
 
     @property
     def message(self):

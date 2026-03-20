@@ -139,11 +139,7 @@ def main(model: str) -> None:
     # exclusive.
     section(5, "Streaming")
     try:
-        token_iter = get_response(
-            model=model,
-            messages="Count from 1 to 5.",
-            stream=True,
-        )
+        token_iter = get_response(model=model, messages="Count from 1 to 5.", stream=True)
         print("[OK] Streaming")
         print("  tokens: ", end="")
         for token in token_iter:
