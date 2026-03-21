@@ -3,9 +3,9 @@
 import os
 from collections.abc import Iterator
 
-from lmtk.datatypes import CompletionRequest
-from lmtk.errors import AuthenticationError
-from lmtk.provider import Provider, RawResponse
+from lmdk.datatypes import CompletionRequest
+from lmdk.errors import AuthenticationError
+from lmdk.provider import Provider, RawResponse
 
 DEFAULT_LOCATION = "us-central1"
 

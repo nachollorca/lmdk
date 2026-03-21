@@ -1,4 +1,4 @@
-"""Tests for lmtk.providers.vertex — VertexProvider."""
+"""Tests for lmdk.providers.vertex — VertexProvider."""
 
 import json
 from unittest.mock import MagicMock, patch
@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import BaseModel
 
-from lmtk.datatypes import AssistantMessage, CompletionRequest, UserMessage
-from lmtk.errors import AuthenticationError
-from lmtk.provider import RawResponse
-from lmtk.providers.vertex import DEFAULT_LOCATION, VertexProvider
+from lmdk.datatypes import AssistantMessage, CompletionRequest, UserMessage
+from lmdk.errors import AuthenticationError
+from lmdk.provider import RawResponse
+from lmdk.providers.vertex import DEFAULT_LOCATION, VertexProvider
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -357,7 +357,7 @@ class TestSendRequest:
         mock_resp = _mock_vertex_response(content="Hello there!")
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post,
+            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
         ):
             result = VertexProvider._send_request(_make_request(), api_key="test-key")
 
@@ -376,7 +376,7 @@ class TestSendRequest:
         mock_resp = _mock_vertex_response()
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post,
+            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
         ):
             request = _make_request(model_id="gemini-2.5-flash@europe-west4")
             VertexProvider._send_request(request, api_key="test-key")
@@ -390,7 +390,7 @@ class TestSendRequest:
         request = _make_request(generation_kwargs={"temperature": 0.9, "max_tokens": 10})
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post,
+            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
         ):
             VertexProvider._send_request(request, api_key="test-key")
 
@@ -406,7 +406,7 @@ class TestSendRequest:
 
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post,
+            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
         ):
             result = VertexProvider._send_request(request, api_key="test-key")
 
@@ -431,7 +431,7 @@ class TestSendRequest:
 
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post,
+            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
         ):
             result = VertexProvider._send_request(request, api_key="test-key")
 
@@ -447,7 +447,7 @@ class TestSendRequest:
         mock_resp = _mock_vertex_response()
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post,
+            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
         ):
             VertexProvider._send_request(_make_request(), api_key="my-api-key")
 
@@ -462,7 +462,7 @@ class TestSendRequest:
         mock_resp = _mock_vertex_response(parts=parts)
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=mock_resp),
+            patch("lmdk.provider.requests.post", return_value=mock_resp),
         ):
             result = VertexProvider._send_request(_make_request(), api_key="test-key")
 
@@ -476,7 +476,7 @@ class TestSendRequest:
         }
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=resp),
+            patch("lmdk.provider.requests.post", return_value=resp),
         ):
             result = VertexProvider._send_request(_make_request(), api_key="test-key")
 
@@ -494,7 +494,7 @@ class TestStreamResponse:
         mock_resp = _mock_stream_response(["Hello", " ", "world"])
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=mock_resp),
+            patch("lmdk.provider.requests.post", return_value=mock_resp),
         ):
             tokens = list(VertexProvider._stream_response(_make_request(), api_key="test-key"))
 
@@ -504,7 +504,7 @@ class TestStreamResponse:
         mock_resp = _mock_stream_response(["ok"])
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post,
+            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
         ):
             list(VertexProvider._stream_response(_make_request(), api_key="test-key"))
 
@@ -516,7 +516,7 @@ class TestStreamResponse:
         mock_resp = _mock_stream_response(["ok"])
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post,
+            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
         ):
             list(VertexProvider._stream_response(_make_request(), api_key="test-key"))
 
@@ -535,7 +535,7 @@ class TestStreamResponse:
 
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=mock_resp),
+            patch("lmdk.provider.requests.post", return_value=mock_resp),
         ):
             tokens = list(VertexProvider._stream_response(_make_request(), api_key="test-key"))
 
@@ -553,7 +553,7 @@ class TestStreamResponse:
 
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=mock_resp),
+            patch("lmdk.provider.requests.post", return_value=mock_resp),
         ):
             tokens = list(VertexProvider._stream_response(_make_request(), api_key="test-key"))
 
@@ -572,7 +572,7 @@ class TestStreamResponse:
 
         with (
             patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmtk.provider.requests.post", return_value=mock_resp),
+            patch("lmdk.provider.requests.post", return_value=mock_resp),
         ):
             tokens = list(VertexProvider._stream_response(_make_request(), api_key="test-key"))
 

@@ -1,17 +1,17 @@
-"""Shared fixtures for lmtk tests."""
+"""Shared fixtures for lmdk tests."""
 
 from collections.abc import Callable, Iterator
 
 import pytest
 
-from lmtk.datatypes import (
+from lmdk.datatypes import (
     AssistantMessage,
     CompletionRequest,
     CompletionResponse,
     Message,
     UserMessage,
 )
-from lmtk.provider import Provider, RawResponse
+from lmdk.provider import Provider, RawResponse
 
 # ---------------------------------------------------------------------------
 # FakeProvider — a concrete Provider for testing the abstract layer
@@ -72,12 +72,12 @@ def fake_provider(monkeypatch):
 
 @pytest.fixture()
 def patch_load_provider(monkeypatch, fake_provider):
-    """Monkeypatch ``load_provider`` in ``lmtk.core`` to return ``FakeProvider``."""
+    """Monkeypatch ``load_provider`` in ``lmdk.core`` to return ``FakeProvider``."""
 
     def _load(name: str):
         return fake_provider
 
-    monkeypatch.setattr("lmtk.core.load_provider", _load)
+    monkeypatch.setattr("lmdk.core.load_provider", _load)
     return fake_provider
 
 

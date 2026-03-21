@@ -5,10 +5,10 @@ from typing import Any, Literal, overload
 
 from pydantic import BaseModel
 
-from lmtk.datatypes import CompletionRequest, CompletionResponse, Message, UserMessage
-from lmtk.errors import AllModelsFailedError
-from lmtk.provider import load_provider
-from lmtk.utils import parallelize_function
+from lmdk.datatypes import CompletionRequest, CompletionResponse, Message, UserMessage
+from lmdk.errors import AllModelsFailedError
+from lmdk.provider import load_provider
+from lmdk.utils import parallelize_function
 
 # @overload stubs let type checkers infer the return type of ``get_response`` based on ``stream``
 

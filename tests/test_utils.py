@@ -1,10 +1,10 @@
-"""Tests for lmtk.utils — utility helpers."""
+"""Tests for lmdk.utils — utility helpers."""
 
 import time
 
 import pytest
 
-from lmtk.utils import parallelize_function, return_if_exception
+from lmdk.utils import parallelize_function, return_if_exception
 
 # ---------------------------------------------------------------------------
 # return_if_exception

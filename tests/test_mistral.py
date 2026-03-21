@@ -1,13 +1,13 @@
-"""Tests for lmtk.providers.mistral — MistralProvider."""
+"""Tests for lmdk.providers.mistral — MistralProvider."""
 
 import json
 from unittest.mock import MagicMock, patch
 
 from pydantic import BaseModel
 
-from lmtk.datatypes import CompletionRequest, UserMessage
-from lmtk.provider import RawResponse
-from lmtk.providers.mistral import MistralProvider
+from lmdk.datatypes import CompletionRequest, UserMessage
+from lmdk.provider import RawResponse
+from lmdk.providers.mistral import MistralProvider
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -101,7 +101,7 @@ class TestBuildMessages:
 class TestSendRequest:
     def test_basic_text_completion(self):
         mock_resp = _mock_chat_response(content="Hello there!")
-        with patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post:
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
             result = MistralProvider._send_request(_make_request(), api_key="test-key")
 
         assert isinstance(result, RawResponse)
@@ -118,7 +118,7 @@ class TestSendRequest:
     def test_generation_kwargs_forwarded(self):
         mock_resp = _mock_chat_response()
         request = _make_request(generation_kwargs={"temperature": 0.9, "max_tokens": 10})
-        with patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post:
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
             MistralProvider._send_request(request, api_key="test-key")
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
@@ -131,7 +131,7 @@ class TestSendRequest:
         mock_resp = _mock_chat_response(content=content)
         request = _make_request(output_schema=Person)
 
-        with patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post:
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
             result = MistralProvider._send_request(request, api_key="test-key")
 
         assert result.content == content
@@ -156,7 +156,7 @@ class TestSendRequest:
         mock_resp = _mock_chat_response(content=content)
         request = _make_request(output_schema=Recipe)
 
-        with patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post:
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
             result = MistralProvider._send_request(request, api_key="test-key")
 
         assert result.content == content
@@ -175,14 +175,14 @@ class TestSendRequest:
 class TestStreamResponse:
     def test_yields_tokens(self):
         mock_resp = _mock_stream_response(["Hello", " ", "world"])
-        with patch("lmtk.provider.requests.post", return_value=mock_resp):
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
             tokens = list(MistralProvider._stream_response(_make_request(), api_key="test-key"))
 
         assert tokens == ["Hello", " ", "world"]
 
     def test_stream_flag_in_payload(self):
         mock_resp = _mock_stream_response(["ok"])
-        with patch("lmtk.provider.requests.post", return_value=mock_resp) as mock_post:
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
             list(MistralProvider._stream_response(_make_request(), api_key="test-key"))
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
@@ -200,7 +200,7 @@ class TestStreamResponse:
         mock_resp.status_code = 200
         mock_resp.iter_lines.return_value = iter(lines)
 
-        with patch("lmtk.provider.requests.post", return_value=mock_resp):
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
             tokens = list(MistralProvider._stream_response(_make_request(), api_key="test-key"))
 
         assert tokens == ["hi"]
@@ -217,7 +217,7 @@ class TestStreamResponse:
         mock_resp.status_code = 200
         mock_resp.iter_lines.return_value = iter(lines)
 
-        with patch("lmtk.provider.requests.post", return_value=mock_resp):
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
             tokens = list(MistralProvider._stream_response(_make_request(), api_key="test-key"))
 
         assert tokens == ["ok"]

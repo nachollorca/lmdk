@@ -1,13 +1,13 @@
-"""Tests for lmtk.core — get_response and get_response_batch."""
+"""Tests for lmdk.core — get_response and get_response_batch."""
 
 import pytest
 
 # We import the public functions; load_provider is patched via the
 # ``patch_load_provider`` fixture from conftest.
-from lmtk.core import get_response, get_response_batch
-from lmtk.datatypes import CompletionResponse, UserMessage
-from lmtk.errors import AllModelsFailedError, ProviderError
-from lmtk.provider import RawResponse
+from lmdk.core import get_response, get_response_batch
+from lmdk.datatypes import CompletionResponse, UserMessage
+from lmdk.errors import AllModelsFailedError, ProviderError
+from lmdk.provider import RawResponse
 
 # ---------------------------------------------------------------------------
 # get_response — input normalization

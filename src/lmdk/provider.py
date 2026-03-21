@@ -9,8 +9,8 @@ from collections.abc import Iterator
 
 import requests
 
-from lmtk.datatypes import CompletionRequest, CompletionResponse, RawResponse
-from lmtk.errors import STATUS_TO_ERROR, AuthenticationError, ProviderError
+from lmdk.datatypes import CompletionRequest, CompletionResponse, RawResponse
+from lmdk.errors import STATUS_TO_ERROR, AuthenticationError, ProviderError
 
 
 class Provider(ABC):
@@ -48,7 +48,7 @@ class Provider(ABC):
         ``_send_request`` with latency measurement, optional structured-output
         parsing, and ``CompletionResponse`` construction.
 
-        See ``lmtk.core.get_response`` for parameter docs and defaults.
+        See ``lmdk.core.get_response`` for parameter docs and defaults.
         """
         api_key = cls._resolve_api_key()
 
@@ -152,13 +152,13 @@ class Provider(ABC):
 def load_provider(name: str) -> type[Provider]:
     """Gets the appropriate Provider class for the given provider name.
 
-    Imports ``<Name>Provider`` from ``lmtk.providers.<name>``
+    Imports ``<Name>Provider`` from ``lmdk.providers.<name>``
     (e.g. ``"mistral"`` -> ``MistralProvider``).
 
     Raises:
         ImportError: If no module matches *name*.
         AttributeError: If the module does not contain the expected class.
     """
-    module = importlib.import_module(f"lmtk.providers.{name}")
+    module = importlib.import_module(f"lmdk.providers.{name}")
     class_name = f"{name.capitalize()}Provider"
     return getattr(module, class_name)

@@ -1,4 +1,4 @@
-"""Example usage of the lmtk library.
+"""Example usage of the lmdk library.
 
 This script serves two purposes:
   1. A quick-start guide showing every feature of the public API.
@@ -18,8 +18,8 @@ import argparse
 
 from pydantic import BaseModel
 
-from lmtk import CompletionResponse, get_response, get_response_batch
-from lmtk.datatypes import AssistantMessage, UserMessage
+from lmdk import CompletionResponse, get_response, get_response_batch
+from lmdk.datatypes import AssistantMessage, UserMessage
 
 # ── Configuration ──────────────────────────────────────────────────────────
 DEFAULT_MODEL = "mistral:mistral-small-2603"
@@ -149,7 +149,7 @@ def main(model: str) -> None:
         print(f"[FAILED] Streaming -> {type(e).__name__}: {e}")
 
     # ── Section 6: Model fallback ────────────────────────────────────────
-    # Pass a list of models. lmtk tries each in order, falling back to the
+    # Pass a list of models. lmdk tries each in order, falling back to the
     # next on failure.  Here the first model uses a non-existent model ID
     # (same provider), so the API call should fail and the second should
     # succeed.
@@ -266,7 +266,7 @@ def main(model: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="lmtk example / provider conformance checker",
+        description="lmdk example / provider conformance checker",
     )
     parser.add_argument(
         "model",

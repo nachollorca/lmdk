@@ -1,11 +1,11 @@
-"""Tests for lmtk.errors — exception hierarchy and status-code mapping."""
+"""Tests for lmdk.errors — exception hierarchy and status-code mapping."""
 
-from lmtk.errors import (
+from lmdk.errors import (
     STATUS_TO_ERROR,
     AllModelsFailedError,
     AuthenticationError,
     InternalServerError,
-    LMTKError,
+    LMDKError,
     PermissionError,
     ProviderError,
     RateLimitError,
@@ -17,8 +17,8 @@ from lmtk.errors import (
 
 
 class TestInheritance:
-    def test_provider_error_is_lmtk_error(self):
-        assert issubclass(ProviderError, LMTKError)
+    def test_provider_error_is_lmdk_error(self):
+        assert issubclass(ProviderError, LMDKError)
 
     def test_authentication_error_is_provider_error(self):
         assert issubclass(AuthenticationError, ProviderError)
@@ -26,8 +26,8 @@ class TestInheritance:
     def test_rate_limit_error_is_provider_error(self):
         assert issubclass(RateLimitError, ProviderError)
 
-    def test_all_models_failed_is_lmtk_error(self):
-        assert issubclass(AllModelsFailedError, LMTKError)
+    def test_all_models_failed_is_lmdk_error(self):
+        assert issubclass(AllModelsFailedError, LMDKError)
 
 
 # ---------------------------------------------------------------------------
@@ -48,11 +48,11 @@ class TestProviderError:
         assert err.provider == ""
         assert err.body == ""
 
-    def test_catchable_as_lmtk_error(self):
-        """ProviderError should be catchable with ``except LMTKError``."""
+    def test_catchable_as_lmdk_error(self):
+        """ProviderError should be catchable with ``except LMDKError``."""
         try:
             raise ProviderError(status_code=400, message="bad request")
-        except LMTKError:
+        except LMDKError:
             pass  # expected
 
 

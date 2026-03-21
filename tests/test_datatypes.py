@@ -1,11 +1,11 @@
-"""Tests for lmtk.datatypes — data contracts used across the app."""
+"""Tests for lmdk.datatypes — data contracts used across the app."""
 
 from dataclasses import FrozenInstanceError
 
 import pytest
 from pydantic import BaseModel
 
-from lmtk.datatypes import (
+from lmdk.datatypes import (
     AssistantMessage,
     CompletionRequest,
     CompletionResponse,

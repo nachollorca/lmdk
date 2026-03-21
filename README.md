@@ -1,4 +1,4 @@
-# lmtk
+# Language Model Development Kit
 
 What it offers:
 - **Simplest interface to call different Language Model APIs**
@@ -9,7 +9,7 @@ What it offers:
 - Unified HTTP error handling
 - Locations (for AWS Bedrock, GCP Vertex and Azure)
 - Fallbacks
-- Bring Your Own Token (for each provider)
+- Bring Your Own Key (for each provider)
 
 What it does **NOT** offer:
 - Tools / function calling / MCP
@@ -23,11 +23,11 @@ If you are looking to keep granular control but extend on tools or multimodality
 If you want a unified a token for all providers and are willing to give away telemetry data, check Gateways like [openrouter](https://openrouter.ai).
 
 ## Install
-`uv add lmtk`
+`uv add lmdk`
 
 ## Basic usage
 ```python
-from lmtk import get_response
+from lmdk import get_response
 
 model = "mistral:mistral-small-2603"
 # supports locations as in "vertex:gemini-2.5-flash@europe-west4"
@@ -114,7 +114,7 @@ results = get_response_batch(model=model, messages_list=["Greet in english", "Sa
 
 ### Structure
 ```text
-src/lmtk/
+src/lmdk/
 ├── core.py         # Entry points: get_response, get_response_batch
 ├── datatypes.py    # Common message and response schemas
 ├── provider.py     # Base Provider class and registry

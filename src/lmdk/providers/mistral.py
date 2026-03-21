@@ -2,8 +2,8 @@
 
 from collections.abc import Iterator
 
-from lmtk.datatypes import CompletionRequest
-from lmtk.provider import Provider, RawResponse
+from lmdk.datatypes import CompletionRequest
+from lmdk.provider import Provider, RawResponse
 
 MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
 

@@ -1,11 +1,11 @@
-"""Custom exceptions for lmtk."""
+"""Custom exceptions for lmdk."""
 
 
-class LMTKError(Exception):
-    """Base exception for all lmtk errors."""
+class LMDKError(Exception):
+    """Base exception for all lmdk errors."""
 
 
-class ProviderError(LMTKError):
+class ProviderError(LMDKError):
     """Raised when a provider API call fails.
 
     Attributes:
@@ -58,7 +58,7 @@ class ServiceUnavailableError(ProviderError):
     """Raised for 503 responses -- service overloaded or unavailable."""
 
 
-class AllModelsFailedError(LMTKError):
+class AllModelsFailedError(LMDKError):
     """Raised when every model in a fallback list fails.
 
     Attributes:
