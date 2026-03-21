@@ -4,11 +4,11 @@ What it offers:
 - **Simplest interface to call different Language Model APIs**
 - Minimal dependencies: HTTP requests only, no third party packages
 - Streaming
-- Comfy structured outputs, **only if the provider / model supports it natively**
-- Parallel calls
+- Comfy structured outputs via Pydantic models, **only if the provider / model supports it natively**
+- Parallel completions
 - Unified HTTP error handling
-- Locations (for AWS Bedrock, GCP Vertex and Azure)
-- Fallbacks
+- Easy location config (for providers with multiple datacenters like AWS Bedrock, GCP Vertex and Azure)
+- Model fallbacks
 - Bring Your Own Key (for each provider)
 
 What it does **NOT** offer:
@@ -137,7 +137,7 @@ We use `just` for development tasks. Use:
 3. **PRs**: Link your PR to the relevant issue using the PR template.
 
 You can use `just validate <model>` (runs `example.py`) to verify which features run properly and which do not for a new provider / model.
-Not all of them have to pass to open a PR: some providers do not even support native structured output.
+**Not all of them have to pass to open a PR:** some providers do not even support native structured output. Do at least the normal non-structured, non-streamed completion. The rest can raise `NotImplementedError`.
 
 ## License
 MIT
