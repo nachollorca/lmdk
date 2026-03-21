@@ -32,6 +32,12 @@ jobs:
           git_committer_name: "github-actions"
           git_committer_email: "actions@users.noreply.github.com"
 
+      # From here onward, we only do stuff if PSR decided that a release is necessary
+
+      - name: Install uv  # to build wheel and publish
+        if: steps.release.outputs.released == 'true'
+        uses: astral-sh/setup-uv@v7
+
       - name: Build and publish in PyPi
         if: steps.release.outputs.released == 'true'
         run: |
