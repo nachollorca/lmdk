@@ -19,7 +19,7 @@ class Provider(ABC):
     Subclasses must define this class attribute:
         api_key_name: The environment variable name for the provider's API key.
 
-    The main method in the base class (``get_response``) handles:
+    The main method in the base class (``complete``) handles:
         - credential resolution (``_resolve_api_key``)
         - latency measurement
         - structured-output validation
@@ -39,7 +39,7 @@ class Provider(ABC):
     api_key_name: str
 
     @classmethod
-    def get_response(
+    def complete(
         cls, request: CompletionRequest, stream: bool
     ) -> CompletionResponse | Iterator[str]:
         """Resolve API credentials and delegate to the provider implementation.
@@ -48,7 +48,7 @@ class Provider(ABC):
         ``_send_request`` with latency measurement, optional structured-output
         parsing, and ``CompletionResponse`` construction.
 
-        See ``lmdk.core.get_response`` for parameter docs and defaults.
+        See ``lmdk.core.complete`` for parameter docs and defaults.
         """
         api_key = cls._resolve_api_key()
 

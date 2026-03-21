@@ -10,11 +10,11 @@ from lmdk.errors import AllModelsFailedError
 from lmdk.provider import load_provider
 from lmdk.utils import parallelize_function
 
-# @overload stubs let type checkers infer the return type of ``get_response`` based on ``stream``
+# @overload stubs let type checkers infer the return type of ``complete`` based on ``stream``
 
 
 @overload
-def get_response(
+def complete(
     model: str | list[str],
     messages: Sequence[Message] | str,
     system_instruction: str | None = None,
@@ -26,7 +26,7 @@ def get_response(
 
 
 @overload
-def get_response(
+def complete(
     model: str | list[str],
     messages: Sequence[Message] | str,
     system_instruction: str | None = None,
@@ -36,7 +36,7 @@ def get_response(
 ) -> CompletionResponse: ...  # stream=False (default) -> complete response
 
 
-def get_response(
+def complete(
     model: str | list[str],
     messages: Sequence[Message] | str,
     system_instruction: str | None = None,
@@ -92,7 +92,7 @@ def get_response(
         )
         try:
             # call provider and hopefully return response
-            return provider.get_response(request=request, stream=stream)
+            return provider.complete(request=request, stream=stream)
         except Exception as exc:
             errors[m] = exc
 
@@ -102,7 +102,7 @@ def get_response(
     raise AllModelsFailedError(errors)
 
 
-def get_response_batch(
+def complete_batch(
     model: str | list[str],
     messages_list: Sequence[Sequence[Message] | str],
     system_instruction: str | None = None,
@@ -112,7 +112,7 @@ def get_response_batch(
 ) -> list[CompletionResponse | Exception]:
     """Generate responses for multiple conversations in parallel.
 
-    Each conversation in *messages_list* is dispatched to :func:`get_response`
+    Each conversation in *messages_list* is dispatched to :func:`complete`
     concurrently via a thread pool. Streaming is not supported in batch mode.
 
     Args:
@@ -141,7 +141,7 @@ def get_response_batch(
     params_list = [{**shared_kwargs, "messages": messages} for messages in messages_list]
 
     return parallelize_function(
-        function=get_response,
+        function=complete,
         params_list=params_list,
         max_workers=max_workers,
         catch_exceptions=True,

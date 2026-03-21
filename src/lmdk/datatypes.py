@@ -38,7 +38,7 @@ class AssistantMessage(Message):
 class CompletionRequest:
     """Bundles the common parameters for a completion call.
 
-    Built by ``lmdk.core.get_response`` and threaded through the provider
+    Built by ``lmdk.core.complete`` and threaded through the provider
     layer so that adding a new parameter is a single-field change here.
     """
 

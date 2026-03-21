@@ -34,36 +34,36 @@ def _mock_http_response(status_code: int, reason: str = "Error", text: str = "")
 
 
 # ---------------------------------------------------------------------------
-# Provider.get_response — credential resolution & dispatch
+# Provider.complete — credential resolution & dispatch
 # ---------------------------------------------------------------------------
 
 
-class TestProviderGetResponse:
+class TestProviderComplete:
     def test_raises_auth_error_when_key_missing(self, fake_provider, monkeypatch):
         monkeypatch.delenv("FAKE_API_KEY", raising=False)
         with pytest.raises(AuthenticationError, match="FAKE_API_KEY"):
-            fake_provider.get_response(request=_make_request(), stream=False)
+            fake_provider.complete(request=_make_request(), stream=False)
 
-    def test_delegates_to_get_response(self, fake_provider):
-        result = fake_provider.get_response(request=_make_request(), stream=False)
+    def test_delegates_to_complete(self, fake_provider):
+        result = fake_provider.complete(request=_make_request(), stream=False)
         assert isinstance(result, CompletionResponse)
         assert result.content == "fake response"
 
     def test_delegates_to_stream(self, fake_provider):
-        result = fake_provider.get_response(request=_make_request(), stream=True)
+        result = fake_provider.complete(request=_make_request(), stream=True)
         assert list(result) == ["chunk1", "chunk2"]
 
     def test_custom_response_fn(self, fake_provider):
         custom = RawResponse(content="custom", input_tokens=0, output_tokens=0)
         fake_provider.response_fn = lambda req, key: custom
 
-        result = fake_provider.get_response(request=_make_request(), stream=False)
+        result = fake_provider.complete(request=_make_request(), stream=False)
         assert result.content == "custom"
 
     def test_custom_stream_fn(self, fake_provider):
         fake_provider.stream_fn = lambda req, key: iter(["a", "b", "c"])
 
-        result = fake_provider.get_response(request=_make_request(), stream=True)
+        result = fake_provider.complete(request=_make_request(), stream=True)
         assert list(result) == ["a", "b", "c"]
 
 

@@ -18,7 +18,7 @@ import argparse
 
 from pydantic import BaseModel
 
-from lmdk import CompletionResponse, get_response, get_response_batch
+from lmdk import CompletionResponse, complete, complete_batch
 from lmdk.datatypes import AssistantMessage, UserMessage
 
 # ── Configuration ──────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ def main(model: str) -> None:
     # The string is automatically wrapped into a UserMessage.
     section(1, "Basic text completion")
     try:
-        response = get_response(model=model, messages="Say hello in one sentence.")
+        response = complete(model=model, messages="Say hello in one sentence.")
         print_response("Basic text completion", response)
     except Exception as e:
         print(f"[FAILED] Basic text completion -> {type(e).__name__}: {e}")
@@ -100,7 +100,7 @@ def main(model: str) -> None:
             AssistantMessage("Nice to meet you, Alice!"),
             UserMessage("What is my name?"),
         ]
-        response = get_response(model=model, messages=messages)
+        response = complete(model=model, messages=messages)
         print_response("Multi-turn conversation", response)
     except Exception as e:
         print(f"[FAILED] Multi-turn conversation -> {type(e).__name__}: {e}")
@@ -110,7 +110,7 @@ def main(model: str) -> None:
     # the tone, persona, or constraints of the model.
     section(3, "System instruction")
     try:
-        response = get_response(
+        response = complete(
             model=model,
             messages="Hi!",
             system_instruction="You are a pirate. Always answer in pirate speak.",
@@ -124,7 +124,7 @@ def main(model: str) -> None:
     # max_tokens.  Default is {"temperature": 0} when not specified.
     section(4, "Generation kwargs")
     try:
-        response = get_response(
+        response = complete(
             model=model,
             messages="Write a poem.",
             generation_kwargs={"temperature": 0.9, "max_tokens": 10},
@@ -139,7 +139,7 @@ def main(model: str) -> None:
     # exclusive.
     section(5, "Streaming")
     try:
-        token_iter = get_response(model=model, messages="Count from 1 to 5.", stream=True)
+        token_iter = complete(model=model, messages="Count from 1 to 5.", stream=True)
         print("[OK] Streaming")
         print("  tokens: ", end="")
         for token in token_iter:
@@ -156,7 +156,7 @@ def main(model: str) -> None:
     section(6, "Model fallback")
     provider = model.split(":")[0]
     try:
-        response = get_response(
+        response = complete(
             model=[f"{provider}:nonexistent-model-12345", model],
             messages="Say 'fallback worked' and nothing else.",
         )
@@ -170,7 +170,7 @@ def main(model: str) -> None:
     # in response.parsed, and response.output applies unwrapping logic.
     section(7, "Structured output (simple)")
     try:
-        response = get_response(
+        response = complete(
             model=model,
             messages="My coworker Jesus is 33 years old.",
             output_schema=Person,
@@ -186,7 +186,7 @@ def main(model: str) -> None:
     # handle more complex JSON schemas.
     section(8, "Structured output (compound)")
     try:
-        response = get_response(
+        response = complete(
             model=model,
             messages="How do I make gazpacho?",
             output_schema=Recipe,
@@ -205,7 +205,7 @@ def main(model: str) -> None:
     #   .output  -> "..."
     section(9, "Single-field unwrapping")
     try:
-        response = get_response(
+        response = complete(
             model=model,
             messages="Summarize the theory of relativity in one sentence.",
             output_schema=Summary,
@@ -217,11 +217,11 @@ def main(model: str) -> None:
         print(f"[FAILED] Single-field unwrapping -> {type(e).__name__}: {e}")
 
     # ── Section 10: Batch responses ───────────────────────────────────────
-    # get_response_batch sends multiple messages in parallel using a thread
+    # complete_batch sends multiple messages in parallel using a thread
     # pool.  Each result is either a CompletionResponse or an Exception.
     section(10, "Batch responses")
     try:
-        results = get_response_batch(
+        results = complete_batch(
             model=model,
             messages_list=["Say 'hello' and nothing else.", "Say 'hola' and nothing else."],
         )
@@ -242,7 +242,7 @@ def main(model: str) -> None:
     # will have .parsed and .output populated.
     section(11, "Batch with structured output")
     try:
-        results = get_response_batch(
+        results = complete_batch(
             model=model,
             messages_list=[
                 "Tell me about Tokyo.",

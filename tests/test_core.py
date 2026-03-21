@@ -1,20 +1,20 @@
-"""Tests for lmdk.core — get_response and get_response_batch."""
+"""Tests for lmdk.core — complete and complete_batch."""
 
 import pytest
 
 # We import the public functions; load_provider is patched via the
 # ``patch_load_provider`` fixture from conftest.
-from lmdk.core import get_response, get_response_batch
+from lmdk.core import complete, complete_batch
 from lmdk.datatypes import CompletionResponse, UserMessage
 from lmdk.errors import AllModelsFailedError, ProviderError
 from lmdk.provider import RawResponse
 
 # ---------------------------------------------------------------------------
-# get_response — input normalization
+# complete — input normalization
 # ---------------------------------------------------------------------------
 
 
-class TestGetResponseInputs:
+class TestCompleteInputs:
     def test_string_message_converted_to_user_message(self, patch_load_provider):
         """A plain string should be wrapped in a UserMessage."""
         captured = {}
@@ -24,7 +24,7 @@ class TestGetResponseInputs:
             return RawResponse(content="ok", input_tokens=0, output_tokens=0)
 
         patch_load_provider.response_fn = spy
-        get_response(model="fake:model", messages="hello")
+        complete(model="fake:model", messages="hello")
 
         assert len(captured["messages"]) == 1
         assert isinstance(captured["messages"][0], UserMessage)
@@ -39,7 +39,7 @@ class TestGetResponseInputs:
             return RawResponse(content="ok", input_tokens=0, output_tokens=0)
 
         patch_load_provider.response_fn = spy
-        get_response(model="fake:model", messages="hi")
+        complete(model="fake:model", messages="hi")
 
         assert captured["kwargs"] == {"temperature": 0}
 
@@ -51,17 +51,17 @@ class TestGetResponseInputs:
             return RawResponse(content="ok", input_tokens=0, output_tokens=0)
 
         patch_load_provider.response_fn = spy
-        get_response(model="fake:model", messages="hi", generation_kwargs={"temperature": 0.7})
+        complete(model="fake:model", messages="hi", generation_kwargs={"temperature": 0.7})
 
         assert captured["kwargs"] == {"temperature": 0.7}
 
 
 # ---------------------------------------------------------------------------
-# get_response — validation
+# complete — validation
 # ---------------------------------------------------------------------------
 
 
-class TestGetResponseValidation:
+class TestCompleteValidation:
     def test_stream_and_output_schema_raises(self, patch_load_provider):
         from pydantic import BaseModel
 
@@ -69,7 +69,7 @@ class TestGetResponseValidation:
             x: int
 
         with pytest.raises(ValueError, match="Only `stream` or `output_schema`"):
-            get_response(
+            complete(
                 model="fake:model",
                 messages="hi",
                 output_schema=Dummy,
@@ -78,18 +78,18 @@ class TestGetResponseValidation:
 
 
 # ---------------------------------------------------------------------------
-# get_response — single model
+# complete — single model
 # ---------------------------------------------------------------------------
 
 
-class TestGetResponseSingleModel:
+class TestCompleteSingleModel:
     def test_returns_response(self, patch_load_provider):
-        result = get_response(model="fake:model", messages="hi")
+        result = complete(model="fake:model", messages="hi")
         assert isinstance(result, CompletionResponse)
         assert result.content == "fake response"
 
     def test_stream_returns_iterator(self, patch_load_provider):
-        result = get_response(model="fake:model", messages="hi", stream=True)
+        result = complete(model="fake:model", messages="hi", stream=True)
         assert list(result) == ["chunk1", "chunk2"]
 
     def test_provider_exception_propagates(self, patch_load_provider):
@@ -99,15 +99,15 @@ class TestGetResponseSingleModel:
         patch_load_provider.response_fn = boom
 
         with pytest.raises(ProviderError, match="server error"):
-            get_response(model="fake:model", messages="hi")
+            complete(model="fake:model", messages="hi")
 
 
 # ---------------------------------------------------------------------------
-# get_response — fallback across multiple models
+# complete — fallback across multiple models
 # ---------------------------------------------------------------------------
 
 
-class TestGetResponseFallback:
+class TestCompleteFallback:
     def test_falls_back_to_second_model(self, patch_load_provider):
         call_count = {"n": 0}
 
@@ -119,7 +119,7 @@ class TestGetResponseFallback:
 
         patch_load_provider.response_fn = fail_then_succeed
 
-        result = get_response(model=["fake:model1", "fake:model2"], messages="hi")
+        result = complete(model=["fake:model1", "fake:model2"], messages="hi")
         assert result.content == "from fallback"
         assert call_count["n"] == 2
 
@@ -130,7 +130,7 @@ class TestGetResponseFallback:
         patch_load_provider.response_fn = always_fail
 
         with pytest.raises(AllModelsFailedError) as exc_info:
-            get_response(model=["fake:a", "fake:b"], messages="hi")
+            complete(model=["fake:a", "fake:b"], messages="hi")
 
         assert len(exc_info.value.errors) == 2
 
@@ -143,15 +143,15 @@ class TestGetResponseFallback:
         patch_load_provider.response_fn = fail
 
         with pytest.raises(ProviderError, match="unavailable"):
-            get_response(model="fake:model", messages="hi")
+            complete(model="fake:model", messages="hi")
 
 
 # ---------------------------------------------------------------------------
-# get_response_batch
+# complete_batch
 # ---------------------------------------------------------------------------
 
 
-class TestGetResponseBatch:
+class TestCompleteBatch:
     def test_returns_results_in_order(self, patch_load_provider):
         def echo(request, api_key):
             text = request.messages[0].content
@@ -159,7 +159,7 @@ class TestGetResponseBatch:
 
         patch_load_provider.response_fn = echo
 
-        results = get_response_batch(
+        results = complete_batch(
             model="fake:model",
             messages_list=["first", "second", "third"],
         )
@@ -177,7 +177,7 @@ class TestGetResponseBatch:
 
         patch_load_provider.response_fn = fail_on_second
 
-        results = get_response_batch(
+        results = complete_batch(
             model="fake:model",
             messages_list=["good", "fail", "good"],
         )
