@@ -2,6 +2,29 @@
 
 <!-- version list -->
 
+## v1.2.0 (2026-03-22)
+
+### Continuous Integration
+
+- Add meta to toml so that it shows up in PyPi
+  ([`e918c1c`](https://github.com/nachollorca/lmdk/commit/e918c1c7d4d86ebedbaf553d8840982b3d02c9ef))
+
+### Documentation
+
+- Make an example of template rendering and expose the function in main init
+  ([`11d0cc0`](https://github.com/nachollorca/lmdk/commit/11d0cc0b546a21bb8acf1d0edbacf194f23c5a81))
+
+### Features
+
+- Add jinja template rendering
+  ([`1aba594`](https://github.com/nachollorca/lmdk/commit/1aba5944213f8e127c3a1ef38f37d8383c1f06d7))
+
+### Refactoring
+
+- Rename messages to prompt
+  ([`c4f04e1`](https://github.com/nachollorca/lmdk/commit/c4f04e1d23627ac3888c79a6da831d85c3a013fb))
+
+
 ## v1.1.2 (2026-03-21)
 
 ### Bug Fixes
