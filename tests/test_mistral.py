@@ -17,7 +17,7 @@ from lmdk.providers.mistral import MistralProvider
 def _make_request(**overrides) -> CompletionRequest:
     defaults = {
         "model_id": "mistral-small-2603",
-        "messages": [UserMessage(content="hi")],
+        "prompt": [UserMessage(content="hi")],
         "system_instruction": None,
         "output_schema": None,
         "generation_kwargs": {},
@@ -74,23 +74,23 @@ class Recipe(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# _build_messages
+# _build_prompt_payload
 # ---------------------------------------------------------------------------
 
 
-class TestBuildMessages:
+class TestBuildPromptPayload:
     def test_without_system_instruction(self):
         request = _make_request()
-        messages = MistralProvider._build_messages(request)
-        assert len(messages) == 1
-        assert messages[0] == {"role": "user", "content": "hi"}
+        payload = MistralProvider._build_prompt_payload(request)
+        assert len(payload) == 1
+        assert payload[0] == {"role": "user", "content": "hi"}
 
     def test_with_system_instruction(self):
         request = _make_request(system_instruction="Be a pirate.")
-        messages = MistralProvider._build_messages(request)
-        assert len(messages) == 2
-        assert messages[0] == {"role": "system", "content": "Be a pirate."}
-        assert messages[1] == {"role": "user", "content": "hi"}
+        payload = MistralProvider._build_prompt_payload(request)
+        assert len(payload) == 2
+        assert payload[0] == {"role": "system", "content": "Be a pirate."}
+        assert payload[1] == {"role": "user", "content": "hi"}
 
 
 # ---------------------------------------------------------------------------

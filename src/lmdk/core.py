@@ -16,7 +16,7 @@ from lmdk.utils import parallelize_function
 @overload
 def complete(
     model: str | list[str],
-    messages: Sequence[Message] | str,
+    prompt: str | Sequence[Message],
     system_instruction: str | None = None,
     output_schema: type[BaseModel] | None = None,
     *,
@@ -28,7 +28,7 @@ def complete(
 @overload
 def complete(
     model: str | list[str],
-    messages: Sequence[Message] | str,
+    prompt: str | Sequence[Message],
     system_instruction: str | None = None,
     output_schema: type[BaseModel] | None = None,
     stream: Literal[False] = False,
@@ -38,7 +38,7 @@ def complete(
 
 def complete(
     model: str | list[str],
-    messages: Sequence[Message] | str,
+    prompt: str | Sequence[Message],
     system_instruction: str | None = None,
     output_schema: type[BaseModel] | None = None,
     stream: bool = False,
@@ -49,8 +49,7 @@ def complete(
     Args:
         model: Provider-prefixed model identifier (e.g. ``"mistral:devstral-latest"``)
             or a list of identifiers to try in order as fallbacks.
-        messages: The conversation history, or a plain string which is
-            interpreted as a single user message.
+        prompt: The string to complete or a conversation history as a list of messages.
         system_instruction: Optional system prompt prepended to the conversation.
         output_schema: Optional Pydantic model class for structured output.
             Mutually exclusive with *stream*.
@@ -73,8 +72,8 @@ def complete(
 
     # set defaults and normalize overloaded params
     models = [model] if isinstance(model, str) else model
-    if isinstance(messages, str):
-        messages = [UserMessage(content=messages)]
+    if isinstance(prompt, str):
+        prompt = [UserMessage(content=prompt)]
     if generation_kwargs is None:
         generation_kwargs = {"temperature": 0}
 
@@ -85,7 +84,7 @@ def complete(
         provider = load_provider(name=provider_name)
         request = CompletionRequest(
             model_id=model_id,
-            messages=messages,
+            prompt=prompt,
             system_instruction=system_instruction,
             output_schema=output_schema,
             generation_kwargs=generation_kwargs,
@@ -104,7 +103,7 @@ def complete(
 
 def complete_batch(
     model: str | list[str],
-    messages_list: Sequence[Sequence[Message] | str],
+    prompt_list: Sequence[str | Sequence[Message]],
     system_instruction: str | None = None,
     output_schema: type[BaseModel] | None = None,
     generation_kwargs: dict[str, Any] | None = None,
@@ -112,13 +111,13 @@ def complete_batch(
 ) -> list[CompletionResponse | Exception]:
     """Generate responses for multiple conversations in parallel.
 
-    Each conversation in *messages_list* is dispatched to :func:`complete`
+    Each conversation in *prompt_list* is dispatched to :func:`complete`
     concurrently via a thread pool. Streaming is not supported in batch mode.
 
     Args:
         model: Provider-prefixed model identifier (e.g. ``"mistral:devstral-latest"``)
             or a list of identifiers to try in order as fallbacks.
-        messages_list: A list of conversations. Each element is either a
+        prompt_list: A list of conversations. Each element is either a
             message list or a plain string (interpreted as a single user message).
         system_instruction: Optional system prompt applied to every conversation.
         output_schema: Optional Pydantic model class for structured output.
@@ -128,7 +127,7 @@ def complete_batch(
 
     Returns:
         A list with one entry per conversation, in the same order as
-        *messages_list*.  Each entry is either a ``CompletionResponse`` on
+        *prompt_list*.  Each entry is either a ``CompletionResponse`` on
         success or the ``Exception`` that was raised on failure.
     """
     shared_kwargs: dict[str, Any] = {
@@ -138,7 +137,7 @@ def complete_batch(
         "stream": False,
         "generation_kwargs": generation_kwargs,
     }
-    params_list = [{**shared_kwargs, "messages": messages} for messages in messages_list]
+    params_list = [{**shared_kwargs, "prompt": prompt} for prompt in prompt_list]
 
     return parallelize_function(
         function=complete,

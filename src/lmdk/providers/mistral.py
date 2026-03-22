@@ -19,12 +19,12 @@ class MistralProvider(Provider):
         return {"Authorization": f"Bearer {api_key}"}
 
     @classmethod
-    def _build_messages(cls, request: CompletionRequest) -> list[dict]:
+    def _build_prompt_payload(cls, request: CompletionRequest) -> list[dict]:
         """Build the API messages list from a CompletionRequest."""
         api_messages: list[dict] = []
         if request.system_instruction:
             api_messages.append({"role": "system", "content": request.system_instruction})
-        api_messages.extend(m.to_dict() for m in request.messages)
+        api_messages.extend(m.to_dict() for m in request.prompt)
         return api_messages
 
     @classmethod
@@ -32,7 +32,7 @@ class MistralProvider(Provider):
         """Build the full request payload for the Mistral API."""
         payload: dict = {
             "model": request.model_id,
-            "messages": cls._build_messages(request),
+            "messages": cls._build_prompt_payload(request),
             "stream": stream,
             **(request.generation_kwargs or {}),
         }

@@ -16,7 +16,7 @@ from lmdk.provider import Provider, RawResponse, load_provider
 def _make_request(**overrides) -> CompletionRequest:
     defaults = {
         "model_id": "test-model",
-        "messages": [UserMessage(content="hi")],
+        "prompt": [UserMessage(content="hi")],
         "system_instruction": None,
         "output_schema": None,
         "generation_kwargs": {},

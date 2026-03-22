@@ -37,7 +37,7 @@ model = "mistral:mistral-small-2603"
 <summary>Single prompt</summary>
 
 ```python
-response = complete(model=model, messages="Tell me a joke")
+response = complete(model=model, prompt="Tell me a joke")
 ```
 </details>
 
@@ -50,7 +50,7 @@ messages = [
     AssistantMessage("Nice to meet you, Alice!"),
     UserMessage("What is my name?"),
 ]
-response = complete(model=model, messages=messages)
+response = complete(model=model, prompt=messages)
 ```
 </details>
 
@@ -60,7 +60,7 @@ response = complete(model=model, messages=messages)
 ```python
 response = complete(
     model=model,
-    messages="Hi!",
+    prompt="Hi!",
     system_instruction="Talk like a pirate",
     generation_kwargs={"temperature": 0.9, "max_tokens": 10}
 )
@@ -71,7 +71,7 @@ response = complete(
 <summary>Streaming</summary>
 
 ```python
-token_iter = complete(model=model, messages="Count from 1 to 5.", stream=True)
+token_iter = complete(model=model, prompt="Count from 1 to 5.", stream=True)
 ```
 </details>
 
@@ -79,7 +79,7 @@ token_iter = complete(model=model, messages="Count from 1 to 5.", stream=True)
 <summary>Model fallbacks</summary>
 
 ```python
-response = complete(model=["mistral:nonexistent-model", model], messages="Hi")
+response = complete(model=["mistral:nonexistent-model", model], prompt="Hi")
 # first request will raise NotFoundError bc model does not exist, second will work
 ```
 </details>
@@ -96,7 +96,7 @@ class Ingredient(BaseModel):
 class Recipe(BaseModel):
     ingredients: list[Ingredient]
 
-response = complete(model=model, messages="How do I make cheescake?", output_schema=Recipe)
+response = complete(model=model, prompt="How do I make cheescake?", output_schema=Recipe)
 # response.parsed will have a Recipe instance
 ```
 </details>
@@ -105,7 +105,7 @@ response = complete(model=model, messages="How do I make cheescake?", output_sch
 <summary>Parallel calls</summary>
 
 ```python
-results = complete_batch(model=model, messages_list=["Greet in english", "Saluda en espanyol."])
+results = complete_batch(model=model, prompt_list=["Greet in english", "Saluda en espanyol."])
 # results will be al list of CompletionResult
 ```
 </details>

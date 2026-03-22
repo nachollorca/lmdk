@@ -88,7 +88,7 @@ class VertexProvider(Provider):
         list containing ``{text: ...}`` objects.
         """
         contents: list[dict] = []
-        for msg in request.messages:
+        for msg in request.prompt:
             role = "model" if msg.role == "assistant" else msg.role
             contents.append({"role": role, "parts": [{"text": msg.content}]})
         return contents

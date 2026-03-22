@@ -20,15 +20,15 @@ class TestCompleteInputs:
         captured = {}
 
         def spy(request, api_key):
-            captured["messages"] = request.messages
+            captured["prompt"] = request.prompt
             return RawResponse(content="ok", input_tokens=0, output_tokens=0)
 
         patch_load_provider.response_fn = spy
-        complete(model="fake:model", messages="hello")
+        complete(model="fake:model", prompt="hello")
 
-        assert len(captured["messages"]) == 1
-        assert isinstance(captured["messages"][0], UserMessage)
-        assert captured["messages"][0].content == "hello"
+        assert len(captured["prompt"]) == 1
+        assert isinstance(captured["prompt"][0], UserMessage)
+        assert captured["prompt"][0].content == "hello"
 
     def test_default_generation_kwargs(self, patch_load_provider):
         """When no generation_kwargs is passed, default to temperature=0."""
@@ -39,7 +39,7 @@ class TestCompleteInputs:
             return RawResponse(content="ok", input_tokens=0, output_tokens=0)
 
         patch_load_provider.response_fn = spy
-        complete(model="fake:model", messages="hi")
+        complete(model="fake:model", prompt="hi")
 
         assert captured["kwargs"] == {"temperature": 0}
 
@@ -51,7 +51,7 @@ class TestCompleteInputs:
             return RawResponse(content="ok", input_tokens=0, output_tokens=0)
 
         patch_load_provider.response_fn = spy
-        complete(model="fake:model", messages="hi", generation_kwargs={"temperature": 0.7})
+        complete(model="fake:model", prompt="hi", generation_kwargs={"temperature": 0.7})
 
         assert captured["kwargs"] == {"temperature": 0.7}
 
@@ -71,7 +71,7 @@ class TestCompleteValidation:
         with pytest.raises(ValueError, match="Only `stream` or `output_schema`"):
             complete(
                 model="fake:model",
-                messages="hi",
+                prompt="hi",
                 output_schema=Dummy,
                 stream=True,
             )
@@ -84,12 +84,12 @@ class TestCompleteValidation:
 
 class TestCompleteSingleModel:
     def test_returns_response(self, patch_load_provider):
-        result = complete(model="fake:model", messages="hi")
+        result = complete(model="fake:model", prompt="hi")
         assert isinstance(result, CompletionResponse)
         assert result.content == "fake response"
 
     def test_stream_returns_iterator(self, patch_load_provider):
-        result = complete(model="fake:model", messages="hi", stream=True)
+        result = complete(model="fake:model", prompt="hi", stream=True)
         assert list(result) == ["chunk1", "chunk2"]
 
     def test_provider_exception_propagates(self, patch_load_provider):
@@ -99,7 +99,7 @@ class TestCompleteSingleModel:
         patch_load_provider.response_fn = boom
 
         with pytest.raises(ProviderError, match="server error"):
-            complete(model="fake:model", messages="hi")
+            complete(model="fake:model", prompt="hi")
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +119,7 @@ class TestCompleteFallback:
 
         patch_load_provider.response_fn = fail_then_succeed
 
-        result = complete(model=["fake:model1", "fake:model2"], messages="hi")
+        result = complete(model=["fake:model1", "fake:model2"], prompt="hi")
         assert result.content == "from fallback"
         assert call_count["n"] == 2
 
@@ -130,7 +130,7 @@ class TestCompleteFallback:
         patch_load_provider.response_fn = always_fail
 
         with pytest.raises(AllModelsFailedError) as exc_info:
-            complete(model=["fake:a", "fake:b"], messages="hi")
+            complete(model=["fake:a", "fake:b"], prompt="hi")
 
         assert len(exc_info.value.errors) == 2
 
@@ -143,7 +143,7 @@ class TestCompleteFallback:
         patch_load_provider.response_fn = fail
 
         with pytest.raises(ProviderError, match="unavailable"):
-            complete(model="fake:model", messages="hi")
+            complete(model="fake:model", prompt="hi")
 
 
 # ---------------------------------------------------------------------------
@@ -154,14 +154,14 @@ class TestCompleteFallback:
 class TestCompleteBatch:
     def test_returns_results_in_order(self, patch_load_provider):
         def echo(request, api_key):
-            text = request.messages[0].content
+            text = request.prompt[0].content
             return RawResponse(content=text, input_tokens=0, output_tokens=0)
 
         patch_load_provider.response_fn = echo
 
         results = complete_batch(
             model="fake:model",
-            messages_list=["first", "second", "third"],
+            prompt_list=["first", "second", "third"],
         )
 
         assert len(results) == 3
@@ -171,7 +171,7 @@ class TestCompleteBatch:
 
     def test_captures_per_item_exceptions(self, patch_load_provider):
         def fail_on_second(request, api_key):
-            if request.messages[0].content == "fail":
+            if request.prompt[0].content == "fail":
                 raise RuntimeError("bad input")
             return RawResponse(content="ok", input_tokens=0, output_tokens=0)
 
@@ -179,7 +179,7 @@ class TestCompleteBatch:
 
         results = complete_batch(
             model="fake:model",
-            messages_list=["good", "fail", "good"],
+            prompt_list=["good", "fail", "good"],
         )
 
         assert isinstance(results[0], CompletionResponse)

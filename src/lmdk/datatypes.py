@@ -43,7 +43,7 @@ class CompletionRequest:
     """
 
     model_id: str
-    messages: Sequence[Message]
+    prompt: Sequence[Message]
     system_instruction: str | None
     output_schema: type[BaseModel] | None
     generation_kwargs: dict

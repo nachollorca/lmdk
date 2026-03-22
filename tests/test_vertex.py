@@ -21,7 +21,7 @@ PROJECT_ID = "my-gcp-project"
 def _make_request(**overrides) -> CompletionRequest:
     defaults = {
         "model_id": "gemini-2.5-flash",
-        "messages": [UserMessage(content="hi")],
+        "prompt": [UserMessage(content="hi")],
         "system_instruction": None,
         "output_schema": None,
         "generation_kwargs": {},
@@ -180,7 +180,7 @@ class TestBuildContents:
 
     def test_assistant_role_mapped_to_model(self):
         request = _make_request(
-            messages=[
+            prompt=[
                 UserMessage(content="hi"),
                 AssistantMessage(content="hello"),
                 UserMessage(content="how are you?"),
@@ -193,7 +193,7 @@ class TestBuildContents:
         assert contents[2]["role"] == "user"
 
     def test_message_content_preserved(self):
-        request = _make_request(messages=[UserMessage(content="Tell me a joke.")])
+        request = _make_request(prompt=[UserMessage(content="Tell me a joke.")])
         contents = VertexProvider._build_contents(request)
         assert contents[0]["parts"] == [{"text": "Tell me a joke."}]
 

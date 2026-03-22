@@ -69,20 +69,20 @@ class TestCompletionRequest:
     def test_creation(self, sample_messages):
         req = CompletionRequest(
             model_id="some-model",
-            messages=sample_messages,
+            prompt=sample_messages,
             system_instruction="Be helpful.",
             output_schema=None,
             generation_kwargs={"temperature": 0.5},
         )
         assert req.model_id == "some-model"
-        assert len(req.messages) == 3
+        assert len(req.prompt) == 3
         assert req.system_instruction == "Be helpful."
         assert req.generation_kwargs == {"temperature": 0.5}
 
     def test_frozen(self, sample_messages):
         req = CompletionRequest(
             model_id="m",
-            messages=sample_messages,
+            prompt=sample_messages,
             system_instruction=None,
             output_schema=None,
             generation_kwargs={},
