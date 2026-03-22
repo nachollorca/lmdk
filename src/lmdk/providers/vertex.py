@@ -69,8 +69,13 @@ class VertexProvider(Provider):
     def _build_url(cls, model: str, location: str, project_id: str, *, stream: bool) -> str:
         """Construct the Vertex AI ``generateContent`` endpoint URL."""
         action = "streamGenerateContent" if stream else "generateContent"
+        host = (
+            f"{location}-aiplatform.googleapis.com"
+            if location != "global"
+            else "aiplatform.googleapis.com"
+        )
         url = (
-            f"https://{location}-aiplatform.googleapis.com/v1/"
+            f"https://{host}/v1/"
             f"projects/{project_id}/locations/{location}/"
             f"publishers/google/models/{model}:{action}"
         )
