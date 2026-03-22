@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.1 (2026-03-22)
+
+### Bug Fixes
+
+- Ensure vertex can call global endpoints
+  ([`a35f907`](https://github.com/nachollorca/lmdk/commit/a35f90773268dbc1f61432aecbbdf021b6052307))
+
+
 ## v1.2.0 (2026-03-22)
 
 ### Continuous Integration
