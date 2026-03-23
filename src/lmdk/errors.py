@@ -34,7 +34,7 @@ class BillingError(ProviderError):
     """Raised for 402 responses -- billing issue or payment required."""
 
 
-class PermissionError(ProviderError):
+class APIPermissionError(ProviderError):
     """Raised for 403 -- credential is correct but lacks permission."""
 
 
@@ -75,7 +75,7 @@ STATUS_TO_ERROR: dict[int, type[ProviderError]] = {
     400: BadRequestError,
     401: AuthenticationError,
     402: BillingError,
-    403: PermissionError,
+    403: APIPermissionError,
     404: NotFoundError,
     413: RequestTooLargeError,
     429: RateLimitError,
