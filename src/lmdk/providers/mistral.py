@@ -11,12 +11,12 @@ MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
 class MistralProvider(Provider):
     """Provider for models hosted on the Mistral API."""
 
-    api_key_name = "MISTRAL_API_KEY"
+    required_env = "MISTRAL_API_KEY"
 
     @classmethod
-    def _build_auth_headers(cls, api_key: str) -> dict:
+    def _build_auth_headers(cls, credentials: dict[str, str]) -> dict:
         """Return Mistral Bearer-token authentication headers."""
-        return {"Authorization": f"Bearer {api_key}"}
+        return {"Authorization": f"Bearer {credentials['MISTRAL_API_KEY']}"}
 
     @classmethod
     def _build_prompt_payload(cls, request: CompletionRequest) -> list[dict]:
@@ -48,11 +48,11 @@ class MistralProvider(Provider):
         return payload
 
     @classmethod
-    def _send_request(cls, request: CompletionRequest, api_key: str) -> RawResponse:
+    def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
         response = cls._make_request(
             MISTRAL_API_URL,
             json=cls._build_payload(request, stream=False),
-            headers=cls._build_auth_headers(api_key),
+            headers=cls._build_auth_headers(credentials),
         )
 
         body = response.json()
@@ -63,11 +63,13 @@ class MistralProvider(Provider):
         )
 
     @classmethod
-    def _stream_response(cls, request: CompletionRequest, api_key: str) -> Iterator[str]:
+    def _stream_response(
+        cls, request: CompletionRequest, credentials: dict[str, str]
+    ) -> Iterator[str]:
         response = cls._make_request(
             MISTRAL_API_URL,
             json=cls._build_payload(request, stream=True),
-            headers=cls._build_auth_headers(api_key),
+            headers=cls._build_auth_headers(credentials),
             stream=True,
         )
 

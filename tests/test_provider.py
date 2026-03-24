@@ -44,6 +44,54 @@ class TestProviderComplete:
         with pytest.raises(AuthenticationError, match="FAKE_API_KEY"):
             fake_provider.complete(request=_make_request(), stream=False)
 
+    def test_resolves_credentials_with_single_str(self, monkeypatch):
+        """Verify that required_env as a single string works."""
+
+        class StrProvider(Provider):
+            required_env = "SINGLE_KEY"
+
+            @classmethod
+            def _build_auth_headers(cls, credentials):
+                return {}
+
+            @classmethod
+            def _send_request(cls, request, credentials):
+                return RawResponse(
+                    content=credentials["SINGLE_KEY"], input_tokens=0, output_tokens=0
+                )
+
+            @classmethod
+            def _stream_response(cls, request, credentials):
+                yield credentials["SINGLE_KEY"]
+
+        monkeypatch.setenv("SINGLE_KEY", "secret-value")
+        result = StrProvider.complete(request=_make_request(), stream=False)
+        assert result.content == "secret-value"
+
+    def test_resolves_credentials_with_tuple(self, monkeypatch):
+        """Verify that required_env as a tuple still works."""
+
+        class TupleProvider(Provider):
+            required_env = ("KEY1", "KEY2")
+
+            @classmethod
+            def _build_auth_headers(cls, credentials):
+                return {}
+
+            @classmethod
+            def _send_request(cls, request, credentials):
+                content = f"{credentials['KEY1']}-{credentials['KEY2']}"
+                return RawResponse(content=content, input_tokens=0, output_tokens=0)
+
+            @classmethod
+            def _stream_response(cls, request, credentials):
+                yield "stub"
+
+        monkeypatch.setenv("KEY1", "val1")
+        monkeypatch.setenv("KEY2", "val2")
+        result = TupleProvider.complete(request=_make_request(), stream=False)
+        assert result.content == "val1-val2"
+
     def test_delegates_to_complete(self, fake_provider):
         result = fake_provider.complete(request=_make_request(), stream=False)
         assert isinstance(result, CompletionResponse)
@@ -55,13 +103,13 @@ class TestProviderComplete:
 
     def test_custom_response_fn(self, fake_provider):
         custom = RawResponse(content="custom", input_tokens=0, output_tokens=0)
-        fake_provider.response_fn = lambda req, key: custom
+        fake_provider.response_fn = lambda req, creds: custom
 
         result = fake_provider.complete(request=_make_request(), stream=False)
         assert result.content == "custom"
 
     def test_custom_stream_fn(self, fake_provider):
-        fake_provider.stream_fn = lambda req, key: iter(["a", "b", "c"])
+        fake_provider.stream_fn = lambda req, creds: iter(["a", "b", "c"])
 
         result = fake_provider.complete(request=_make_request(), stream=True)
         assert list(result) == ["a", "b", "c"]

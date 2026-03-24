@@ -3,10 +3,10 @@
 from lmdk.errors import (
     STATUS_TO_ERROR,
     AllModelsFailedError,
+    APIPermissionError,
     AuthenticationError,
     InternalServerError,
     LMDKError,
-    PermissionError,
     ProviderError,
     RateLimitError,
 )
@@ -88,7 +88,7 @@ class TestStatusToError:
         assert STATUS_TO_ERROR[401] is AuthenticationError
 
     def test_403_maps_to_permission(self):
-        assert STATUS_TO_ERROR[403] is PermissionError
+        assert STATUS_TO_ERROR[403] is APIPermissionError
 
     def test_429_maps_to_rate_limit(self):
         assert STATUS_TO_ERROR[429] is RateLimitError

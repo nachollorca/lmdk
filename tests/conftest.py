@@ -31,26 +31,28 @@ class FakeProvider(Provider):
     failures, or streaming output without hitting any real API.
     """
 
-    api_key_name: str = "FAKE_API_KEY"
+    required_env: tuple[str, ...] = ("FAKE_API_KEY",)
 
     # Callables that tests can override
-    response_fn: Callable[[CompletionRequest, str], RawResponse] | None = None
-    stream_fn: Callable[[CompletionRequest, str], Iterator[str]] | None = None
+    response_fn: Callable[[CompletionRequest, dict[str, str]], RawResponse] | None = None
+    stream_fn: Callable[[CompletionRequest, dict[str, str]], Iterator[str]] | None = None
 
     @classmethod
-    def _build_auth_headers(cls, api_key: str) -> dict:
-        return {"Authorization": f"Bearer {api_key}"}
+    def _build_auth_headers(cls, credentials: dict[str, str]) -> dict:
+        return {"Authorization": f"Bearer {credentials['FAKE_API_KEY']}"}
 
     @classmethod
-    def _send_request(cls, request: CompletionRequest, api_key: str) -> RawResponse:
+    def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
         if cls.response_fn is not None:
-            return cls.response_fn(request, api_key)
+            return cls.response_fn(request, credentials)
         return _DEFAULT_RAW
 
     @classmethod
-    def _stream_response(cls, request: CompletionRequest, api_key: str) -> Iterator[str]:
+    def _stream_response(
+        cls, request: CompletionRequest, credentials: dict[str, str]
+    ) -> Iterator[str]:
         if cls.stream_fn is not None:
-            return cls.stream_fn(request, api_key)
+            return cls.stream_fn(request, credentials)
         return iter(["chunk1", "chunk2"])
 
 
