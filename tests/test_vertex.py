@@ -3,11 +3,9 @@
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
 from pydantic import BaseModel
 
 from lmdk.datatypes import AssistantMessage, CompletionRequest, UserMessage
-from lmdk.errors import AuthenticationError
 from lmdk.provider import RawResponse
 from lmdk.providers.vertex import DEFAULT_LOCATION, VertexProvider
 
@@ -92,7 +90,7 @@ class Recipe(BaseModel):
 
 class TestBuildAuthHeaders:
     def test_returns_api_key_header(self):
-        headers = VertexProvider._build_auth_headers("my-key")
+        headers = VertexProvider._build_auth_headers({"VERTEX_API_KEY": "my-key"})
         assert headers == {"x-goog-api-key": "my-key"}
 
 
@@ -119,19 +117,14 @@ class TestParseModelId:
 
 
 # ---------------------------------------------------------------------------
-# _resolve_project_id
+# env_var_names
 # ---------------------------------------------------------------------------
 
 
-class TestResolveProjectId:
-    def test_reads_from_env(self):
-        with patch.dict("os.environ", {"GCP_PROJECT_ID": "test-project"}):
-            assert VertexProvider._resolve_project_id() == "test-project"
-
-    def test_raises_when_not_set(self):
-        with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(AuthenticationError, match="GCP_PROJECT_ID"):
-                VertexProvider._resolve_project_id()
+class TestRequiredEnv:
+    def test_includes_api_key_and_project_id(self):
+        assert "VERTEX_API_KEY" in VertexProvider.env_var_names
+        assert "GCP_PROJECT_ID" in VertexProvider.env_var_names
 
 
 # ---------------------------------------------------------------------------
@@ -352,14 +345,14 @@ class TestExtractText:
 # ---------------------------------------------------------------------------
 
 
+CREDENTIALS = {"VERTEX_API_KEY": "test-key", "GCP_PROJECT_ID": PROJECT_ID}
+
+
 class TestSendRequest:
     def test_basic_text_completion(self):
         mock_resp = _mock_vertex_response(content="Hello there!")
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
-        ):
-            result = VertexProvider._send_request(_make_request(), api_key="test-key")
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            result = VertexProvider._send_request(_make_request(), credentials=CREDENTIALS)
 
         assert isinstance(result, RawResponse)
         assert result.content == "Hello there!"
@@ -374,12 +367,9 @@ class TestSendRequest:
 
     def test_uses_model_and_location_from_model_id(self):
         mock_resp = _mock_vertex_response()
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
-        ):
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
             request = _make_request(model_id="gemini-2.5-flash@europe-west4")
-            VertexProvider._send_request(request, api_key="test-key")
+            VertexProvider._send_request(request, credentials=CREDENTIALS)
 
         url = mock_post.call_args[0][0]
         assert "europe-west4-aiplatform.googleapis.com" in url
@@ -388,11 +378,8 @@ class TestSendRequest:
     def test_generation_kwargs_forwarded(self):
         mock_resp = _mock_vertex_response()
         request = _make_request(generation_kwargs={"temperature": 0.9, "max_tokens": 10})
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
-        ):
-            VertexProvider._send_request(request, api_key="test-key")
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            VertexProvider._send_request(request, credentials=CREDENTIALS)
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         gen_config = payload["generationConfig"]
@@ -404,11 +391,8 @@ class TestSendRequest:
         mock_resp = _mock_vertex_response(content=content)
         request = _make_request(output_schema=Person)
 
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
-        ):
-            result = VertexProvider._send_request(request, api_key="test-key")
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            result = VertexProvider._send_request(request, credentials=CREDENTIALS)
 
         assert result.content == content
 
@@ -429,11 +413,8 @@ class TestSendRequest:
         mock_resp = _mock_vertex_response(content=content)
         request = _make_request(output_schema=Recipe)
 
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
-        ):
-            result = VertexProvider._send_request(request, api_key="test-key")
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            result = VertexProvider._send_request(request, credentials=CREDENTIALS)
 
         assert result.content == content
 
@@ -445,11 +426,9 @@ class TestSendRequest:
 
     def test_auth_headers_sent(self):
         mock_resp = _mock_vertex_response()
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
-        ):
-            VertexProvider._send_request(_make_request(), api_key="my-api-key")
+        creds = {"VERTEX_API_KEY": "my-api-key", "GCP_PROJECT_ID": PROJECT_ID}
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            VertexProvider._send_request(_make_request(), credentials=creds)
 
         call_kwargs = mock_post.call_args.kwargs
         assert call_kwargs["headers"] == {"x-goog-api-key": "my-api-key"}
@@ -460,11 +439,8 @@ class TestSendRequest:
             {"text": "The answer is 42."},
         ]
         mock_resp = _mock_vertex_response(parts=parts)
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=mock_resp),
-        ):
-            result = VertexProvider._send_request(_make_request(), api_key="test-key")
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            result = VertexProvider._send_request(_make_request(), credentials=CREDENTIALS)
 
         assert result.content == "The answer is 42."
 
@@ -474,11 +450,8 @@ class TestSendRequest:
         resp.json.return_value = {
             "candidates": [{"content": {"parts": [{"text": "ok"}]}}],
         }
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=resp),
-        ):
-            result = VertexProvider._send_request(_make_request(), api_key="test-key")
+        with patch("lmdk.provider.requests.post", return_value=resp):
+            result = VertexProvider._send_request(_make_request(), credentials=CREDENTIALS)
 
         assert result.input_tokens == 0
         assert result.output_tokens == 0
@@ -492,21 +465,15 @@ class TestSendRequest:
 class TestStreamResponse:
     def test_yields_tokens(self):
         mock_resp = _mock_stream_response(["Hello", " ", "world"])
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=mock_resp),
-        ):
-            tokens = list(VertexProvider._stream_response(_make_request(), api_key="test-key"))
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            tokens = list(VertexProvider._stream_response(_make_request(), credentials=CREDENTIALS))
 
         assert tokens == ["Hello", " ", "world"]
 
     def test_stream_url_used(self):
         mock_resp = _mock_stream_response(["ok"])
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
-        ):
-            list(VertexProvider._stream_response(_make_request(), api_key="test-key"))
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            list(VertexProvider._stream_response(_make_request(), credentials=CREDENTIALS))
 
         url = mock_post.call_args[0][0]
         assert "streamGenerateContent" in url
@@ -514,11 +481,8 @@ class TestStreamResponse:
 
     def test_stream_flag_in_request(self):
         mock_resp = _mock_stream_response(["ok"])
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post,
-        ):
-            list(VertexProvider._stream_response(_make_request(), api_key="test-key"))
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            list(VertexProvider._stream_response(_make_request(), credentials=CREDENTIALS))
 
         call_kwargs = mock_post.call_args.kwargs
         assert call_kwargs.get("stream") is True
@@ -533,11 +497,8 @@ class TestStreamResponse:
         mock_resp.status_code = 200
         mock_resp.iter_lines.return_value = iter(lines)
 
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=mock_resp),
-        ):
-            tokens = list(VertexProvider._stream_response(_make_request(), api_key="test-key"))
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            tokens = list(VertexProvider._stream_response(_make_request(), credentials=CREDENTIALS))
 
         assert tokens == ["Answer"]
 
@@ -551,11 +512,8 @@ class TestStreamResponse:
         mock_resp.status_code = 200
         mock_resp.iter_lines.return_value = iter(lines)
 
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=mock_resp),
-        ):
-            tokens = list(VertexProvider._stream_response(_make_request(), api_key="test-key"))
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            tokens = list(VertexProvider._stream_response(_make_request(), credentials=CREDENTIALS))
 
         assert tokens == ["hi"]
 
@@ -570,10 +528,7 @@ class TestStreamResponse:
         mock_resp.status_code = 200
         mock_resp.iter_lines.return_value = iter(lines)
 
-        with (
-            patch.dict("os.environ", {"GCP_PROJECT_ID": PROJECT_ID}),
-            patch("lmdk.provider.requests.post", return_value=mock_resp),
-        ):
-            tokens = list(VertexProvider._stream_response(_make_request(), api_key="test-key"))
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            tokens = list(VertexProvider._stream_response(_make_request(), credentials=CREDENTIALS))
 
         assert tokens == ["hi"]

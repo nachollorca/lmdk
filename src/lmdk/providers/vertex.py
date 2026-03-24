@@ -1,10 +1,8 @@
 """Implements the provider to use models hosted in GCP Vertex API."""
 
-import os
 from collections.abc import Iterator
 
 from lmdk.datatypes import CompletionRequest
-from lmdk.errors import AuthenticationError
 from lmdk.provider import Provider, RawResponse
 
 DEFAULT_LOCATION = "us-central1"
@@ -29,14 +27,14 @@ _GENERATION_KEY_MAP = {
 class VertexProvider(Provider):
     """Provider for models hosted on the Google Vertex AI API (Gemini)."""
 
-    api_key_name = "VERTEX_API_KEY"
+    env_var_names = ("VERTEX_API_KEY", "GCP_PROJECT_ID")
 
     # ── Auth ──────────────────────────────────────────────────────────────
 
     @classmethod
-    def _build_auth_headers(cls, api_key: str) -> dict:
+    def _build_auth_headers(cls, credentials: dict[str, str]) -> dict:
         """Return Vertex AI API-key authentication headers."""
-        return {"x-goog-api-key": api_key}
+        return {"x-goog-api-key": credentials["VERTEX_API_KEY"]}
 
     # ── Model / location parsing ──────────────────────────────────────────
 
@@ -52,18 +50,6 @@ class VertexProvider(Provider):
             model, location = model_id.rsplit("@", 1)
             return model, location
         return model_id, DEFAULT_LOCATION
-
-    @classmethod
-    def _resolve_project_id(cls) -> str:
-        """Read the GCP project ID from the environment."""
-        project_id = os.getenv("GCP_PROJECT_ID")
-        if not project_id:
-            raise AuthenticationError(
-                status_code=0,
-                message="Environment variable GCP_PROJECT_ID not set.",
-                provider=cls.__name__,
-            )
-        return project_id
 
     @classmethod
     def _build_url(cls, model: str, location: str, project_id: str, *, stream: bool) -> str:
@@ -220,14 +206,14 @@ class VertexProvider(Provider):
     # ── Provider interface implementation ─────────────────────────────────
 
     @classmethod
-    def _send_request(cls, request: CompletionRequest, api_key: str) -> RawResponse:
+    def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
         model, location = cls._parse_model_id(request.model_id)
-        project_id = cls._resolve_project_id()
+        project_id = credentials["GCP_PROJECT_ID"]
 
         response = cls._make_request(
             cls._build_url(model, location, project_id, stream=False),
             json=cls._build_payload(request),
-            headers=cls._build_auth_headers(api_key),
+            headers=cls._build_auth_headers(credentials),
         )
 
         body = response.json()
@@ -241,14 +227,16 @@ class VertexProvider(Provider):
         )
 
     @classmethod
-    def _stream_response(cls, request: CompletionRequest, api_key: str) -> Iterator[str]:
+    def _stream_response(
+        cls, request: CompletionRequest, credentials: dict[str, str]
+    ) -> Iterator[str]:
         model, location = cls._parse_model_id(request.model_id)
-        project_id = cls._resolve_project_id()
+        project_id = credentials["GCP_PROJECT_ID"]
 
         response = cls._make_request(
             cls._build_url(model, location, project_id, stream=True),
             json=cls._build_payload(request),
-            headers=cls._build_auth_headers(api_key),
+            headers=cls._build_auth_headers(credentials),
             stream=True,
         )
 

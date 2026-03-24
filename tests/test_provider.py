@@ -55,13 +55,13 @@ class TestProviderComplete:
 
     def test_custom_response_fn(self, fake_provider):
         custom = RawResponse(content="custom", input_tokens=0, output_tokens=0)
-        fake_provider.response_fn = lambda req, key: custom
+        fake_provider.response_fn = lambda req, creds: custom
 
         result = fake_provider.complete(request=_make_request(), stream=False)
         assert result.content == "custom"
 
     def test_custom_stream_fn(self, fake_provider):
-        fake_provider.stream_fn = lambda req, key: iter(["a", "b", "c"])
+        fake_provider.stream_fn = lambda req, creds: iter(["a", "b", "c"])
 
         result = fake_provider.complete(request=_make_request(), stream=True)
         assert list(result) == ["a", "b", "c"]

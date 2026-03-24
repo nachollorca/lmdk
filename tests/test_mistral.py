@@ -102,7 +102,9 @@ class TestSendRequest:
     def test_basic_text_completion(self):
         mock_resp = _mock_chat_response(content="Hello there!")
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = MistralProvider._send_request(_make_request(), api_key="test-key")
+            result = MistralProvider._send_request(
+                _make_request(), credentials={"MISTRAL_API_KEY": "test-key"}
+            )
 
         assert isinstance(result, RawResponse)
         assert result.content == "Hello there!"
@@ -119,7 +121,7 @@ class TestSendRequest:
         mock_resp = _mock_chat_response()
         request = _make_request(generation_kwargs={"temperature": 0.9, "max_tokens": 10})
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            MistralProvider._send_request(request, api_key="test-key")
+            MistralProvider._send_request(request, credentials={"MISTRAL_API_KEY": "test-key"})
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         assert payload["temperature"] == 0.9
@@ -132,7 +134,9 @@ class TestSendRequest:
         request = _make_request(output_schema=Person)
 
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = MistralProvider._send_request(request, api_key="test-key")
+            result = MistralProvider._send_request(
+                request, credentials={"MISTRAL_API_KEY": "test-key"}
+            )
 
         assert result.content == content
 
@@ -157,7 +161,9 @@ class TestSendRequest:
         request = _make_request(output_schema=Recipe)
 
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = MistralProvider._send_request(request, api_key="test-key")
+            result = MistralProvider._send_request(
+                request, credentials={"MISTRAL_API_KEY": "test-key"}
+            )
 
         assert result.content == content
 
@@ -176,14 +182,22 @@ class TestStreamResponse:
     def test_yields_tokens(self):
         mock_resp = _mock_stream_response(["Hello", " ", "world"])
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            tokens = list(MistralProvider._stream_response(_make_request(), api_key="test-key"))
+            tokens = list(
+                MistralProvider._stream_response(
+                    _make_request(), credentials={"MISTRAL_API_KEY": "test-key"}
+                )
+            )
 
         assert tokens == ["Hello", " ", "world"]
 
     def test_stream_flag_in_payload(self):
         mock_resp = _mock_stream_response(["ok"])
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            list(MistralProvider._stream_response(_make_request(), api_key="test-key"))
+            list(
+                MistralProvider._stream_response(
+                    _make_request(), credentials={"MISTRAL_API_KEY": "test-key"}
+                )
+            )
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         assert payload["stream"] is True
@@ -201,7 +215,11 @@ class TestStreamResponse:
         mock_resp.iter_lines.return_value = iter(lines)
 
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            tokens = list(MistralProvider._stream_response(_make_request(), api_key="test-key"))
+            tokens = list(
+                MistralProvider._stream_response(
+                    _make_request(), credentials={"MISTRAL_API_KEY": "test-key"}
+                )
+            )
 
         assert tokens == ["hi"]
 
@@ -218,6 +236,10 @@ class TestStreamResponse:
         mock_resp.iter_lines.return_value = iter(lines)
 
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            tokens = list(MistralProvider._stream_response(_make_request(), api_key="test-key"))
+            tokens = list(
+                MistralProvider._stream_response(
+                    _make_request(), credentials={"MISTRAL_API_KEY": "test-key"}
+                )
+            )
 
         assert tokens == ["ok"]

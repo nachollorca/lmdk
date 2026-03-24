@@ -17,10 +17,11 @@ class Provider(ABC):
     """Interface that all LLM providers must implement.
 
     Subclasses must define this class attribute:
-        api_key_name: The environment variable name for the provider's API key.
+        env_var_names: Tuple of environment variable names the provider needs
+            (e.g. ``("MISTRAL_API_KEY",)`` or ``("VERTEX_API_KEY", "GCP_PROJECT_ID")``).
 
     The main method in the base class (``complete``) handles:
-        - credential resolution (``_resolve_api_key``)
+        - credential resolution (``_resolve_credentials``)
         - latency measurement
         - structured-output validation
         - ``CompletionResponse`` construction
@@ -36,7 +37,7 @@ class Provider(ABC):
         - ``_stream_response`` to build the HTTP body and parse the streamed tokens
     """
 
-    api_key_name: str
+    env_var_names: tuple[str, ...]
 
     @classmethod
     def complete(
@@ -50,13 +51,13 @@ class Provider(ABC):
 
         See ``lmdk.core.complete`` for parameter docs and defaults.
         """
-        api_key = cls._resolve_api_key()
+        credentials = cls._resolve_credentials()
 
         if stream:
-            return cls._stream_response(request, api_key)
+            return cls._stream_response(request, credentials)
 
         start = time.perf_counter()
-        raw = cls._send_request(request, api_key)
+        raw = cls._send_request(request, credentials)
         latency = time.perf_counter() - start
 
         parsed = None
@@ -73,13 +74,13 @@ class Provider(ABC):
 
     @classmethod
     @abstractmethod
-    def _build_auth_headers(cls, api_key: str) -> dict:
+    def _build_auth_headers(cls, credentials: dict[str, str]) -> dict:
         """Return provider-specific authentication headers."""
         ...
 
     @classmethod
     @abstractmethod
-    def _send_request(cls, request: CompletionRequest, api_key: str) -> RawResponse:
+    def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
         """Make the API call and return the raw content and token counts.
 
         Implementations should NOT measure latency, validate output schemas,
@@ -89,7 +90,9 @@ class Provider(ABC):
 
     @classmethod
     @abstractmethod
-    def _stream_response(cls, request: CompletionRequest, api_key: str) -> Iterator[str]:
+    def _stream_response(
+        cls, request: CompletionRequest, credentials: dict[str, str]
+    ) -> Iterator[str]:
         """Stream chat completion tokens from the provider."""
         ...
 
@@ -134,19 +137,25 @@ class Provider(ABC):
         return response
 
     @classmethod
-    def _resolve_api_key(cls) -> str:
-        """Read the API key from the environment.
+    def _resolve_credentials(cls) -> dict[str, str]:
+        """Read all required environment variables.
 
-        Raises :class:`AuthenticationError` when the variable is unset or empty.
+        Returns a ``{var_name: value}`` dict for every name listed in
+        ``env_var_names``.
+
+        Raises :class:`AuthenticationError` when any variable is unset or empty.
         """
-        api_key = os.getenv(cls.api_key_name)
-        if not api_key:
-            raise AuthenticationError(
-                status_code=0,
-                message=f"Environment variable {cls.api_key_name} not set.",
-                provider=cls.__name__,
-            )
-        return api_key
+        credentials: dict[str, str] = {}
+        for var in cls.env_var_names:
+            value = os.getenv(var)
+            if not value:
+                raise AuthenticationError(
+                    status_code=0,
+                    message=f"Environment variable {var} not set.",
+                    provider=cls.__name__,
+                )
+            credentials[var] = value
+        return credentials
 
 
 def load_provider(name: str) -> type[Provider]:
