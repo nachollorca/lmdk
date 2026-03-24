@@ -31,7 +31,7 @@ class FakeProvider(Provider):
     failures, or streaming output without hitting any real API.
     """
 
-    env_var_names: tuple[str, ...] = ("FAKE_API_KEY",)
+    required_env: tuple[str, ...] = ("FAKE_API_KEY",)
 
     # Callables that tests can override
     response_fn: Callable[[CompletionRequest, dict[str, str]], RawResponse] | None = None

@@ -45,10 +45,10 @@ class TestProviderComplete:
             fake_provider.complete(request=_make_request(), stream=False)
 
     def test_resolves_credentials_with_single_str(self, monkeypatch):
-        """Verify that env_var_names as a single string works."""
+        """Verify that required_env as a single string works."""
 
         class StrProvider(Provider):
-            env_var_names = "SINGLE_KEY"
+            required_env = "SINGLE_KEY"
 
             @classmethod
             def _build_auth_headers(cls, credentials):
@@ -69,10 +69,10 @@ class TestProviderComplete:
         assert result.content == "secret-value"
 
     def test_resolves_credentials_with_tuple(self, monkeypatch):
-        """Verify that env_var_names as a tuple still works."""
+        """Verify that required_env as a tuple still works."""
 
         class TupleProvider(Provider):
-            env_var_names = ("KEY1", "KEY2")
+            required_env = ("KEY1", "KEY2")
 
             @classmethod
             def _build_auth_headers(cls, credentials):

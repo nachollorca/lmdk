@@ -117,14 +117,14 @@ class TestParseModelId:
 
 
 # ---------------------------------------------------------------------------
-# env_var_names
+# required_env
 # ---------------------------------------------------------------------------
 
 
 class TestRequiredEnv:
     def test_includes_api_key_and_project_id(self):
-        assert "VERTEX_API_KEY" in VertexProvider.env_var_names
-        assert "GCP_PROJECT_ID" in VertexProvider.env_var_names
+        assert "VERTEX_API_KEY" in VertexProvider.required_env
+        assert "GCP_PROJECT_ID" in VertexProvider.required_env
 
 
 # ---------------------------------------------------------------------------

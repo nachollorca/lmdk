@@ -16,7 +16,7 @@ from lmdk.errors import STATUS_TO_ERROR, AuthenticationError, ProviderError
 class Provider(ABC):
     """Interface that all LLM providers must implement.
 
-    Subclasses must define class attribute ``env_var_names``:
+    Subclasses must define class attribute ``required_env``:
     A string or tuple of environment variable names the provider needs. For example:
     ``"MISTRAL_API_KEY"`` or ``("VERTEX_API_KEY", "GCP_PROJECT_ID")``).
 
@@ -37,7 +37,7 @@ class Provider(ABC):
         - ``_stream_response`` to build the HTTP body and parse the streamed tokens
     """
 
-    env_var_names: str | tuple[str, ...]
+    required_env: str | tuple[str, ...]  # one or multiple required environmental variables
 
     @classmethod
     def complete(
@@ -141,13 +141,13 @@ class Provider(ABC):
         """Read all required environment variables.
 
         Returns a ``{var_name: value}`` dict for every name listed in
-        ``env_var_names``.
+        ``required_env``.
 
         Raises :class:`AuthenticationError` when any variable is unset or empty.
         """
         # Normalize to a tuple if a single string is provided
         vars_to_resolve = (
-            (cls.env_var_names,) if isinstance(cls.env_var_names, str) else cls.env_var_names
+            (cls.required_env,) if isinstance(cls.required_env, str) else cls.required_env
         )
 
         credentials: dict[str, str] = {}

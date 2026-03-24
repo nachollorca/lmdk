@@ -27,7 +27,7 @@ _GENERATION_KEY_MAP = {
 class VertexProvider(Provider):
     """Provider for models hosted on the Google Vertex AI API (Gemini)."""
 
-    env_var_names = ("VERTEX_API_KEY", "GCP_PROJECT_ID")
+    required_env = ("VERTEX_API_KEY", "GCP_PROJECT_ID")
 
     # ── Auth ──────────────────────────────────────────────────────────────
 

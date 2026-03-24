@@ -11,7 +11,7 @@ MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
 class MistralProvider(Provider):
     """Provider for models hosted on the Mistral API."""
 
-    env_var_names = "MISTRAL_API_KEY"
+    required_env = "MISTRAL_API_KEY"
 
     @classmethod
     def _build_auth_headers(cls, credentials: dict[str, str]) -> dict:
