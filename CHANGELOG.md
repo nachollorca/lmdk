@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-03-24)
+
+### Code Style
+
+- Rename PermissionError to APIPermission error to avoid overshadowing python's
+  ([`745ca46`](https://github.com/nachollorca/lmdk/commit/745ca469fff45a5780bd34c3c1f37b5c74df068f))
+
+### Features
+
+- Allow for multiple environmental variables
+  ([`0130b43`](https://github.com/nachollorca/lmdk/commit/0130b432902a43f0cf4107f8926a0a76cb650401))
+
+- Overload required_env to allow for a single string or a tuple of env var names
+  ([`7d86787`](https://github.com/nachollorca/lmdk/commit/7d8678751803ebc797e1c09e71574a0d4ac7cd1b))
+
+### Refactoring
+
+- Overload required_env to allow for a string or tuple of strings
+  ([`56e0a88`](https://github.com/nachollorca/lmdk/commit/56e0a888d062f4d7b6d2301dacc5840dbbdb7915))
+
+
 ## v1.2.1 (2026-03-22)
 
 ### Bug Fixes
