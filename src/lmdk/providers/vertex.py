@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from lmdk.datatypes import CompletionRequest
 from lmdk.provider import Provider, RawResponse
 
-DEFAULT_LOCATION = "us-central1"
+DEFAULT_LOCATION = "global"
 
 # Maps common OpenAI-style generation parameter names to Vertex AI camelCase equivalents.
 _GENERATION_KEY_MAP = {
