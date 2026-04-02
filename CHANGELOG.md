@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.0 (2026-04-02)
+
+### Features
+
+- Add anthropic provider
+  ([`8939815`](https://github.com/nachollorca/lmdk/commit/8939815b5ada84f819ae0b7d4f7828dd74d2518a))
+
+
 ## v1.3.1 (2026-03-27)
 
 ### Bug Fixes
