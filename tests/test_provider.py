@@ -164,8 +164,3 @@ class TestLoadProvider:
     def test_unknown_provider_raises_import_error(self):
         with pytest.raises(ModuleNotFoundError):
             load_provider("nonexistent_provider_xyz")
-
-    def test_stub_provider_raises_attribute_error(self):
-        """llamacpp.py exists but has no VertexProvider class yet."""
-        with pytest.raises(AttributeError):
-            load_provider("llamacpp")
