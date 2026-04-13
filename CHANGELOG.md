@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.5.0 (2026-04-13)
+
+### Features
+
+- Implement llamacpp provider
+  ([`2021614`](https://github.com/nachollorca/lmdk/commit/2021614ed0ab50be5135023ad941e414269796eb))
+
+### Testing
+
+- Implement llamacpp tests
+  ([`59ae4ec`](https://github.com/nachollorca/lmdk/commit/59ae4ec16f633212a0a72621f166c86a54071189))
+
+
 ## v1.4.0 (2026-04-02)
 
 ### Features
