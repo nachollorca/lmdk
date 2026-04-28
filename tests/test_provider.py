@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from lmdk.datatypes import CompletionRequest, CompletionResponse, UserMessage
-from lmdk.errors import AuthenticationError, InternalServerError, ProviderError, RateLimitError
+from lmdk.errors import AuthenticationError, InternalServerError, RateLimitError
 from lmdk.provider import Provider, RawResponse, load_provider
 
 # ---------------------------------------------------------------------------
@@ -129,24 +129,30 @@ class TestMakeRequest:
 
     def test_401_raises_auth_error(self, fake_provider):
         mock_resp = _mock_http_response(401, reason="Unauthorized", text="bad key")
-        with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            with pytest.raises(AuthenticationError) as exc_info:
-                fake_provider._make_request("https://example.com", json={})
+        with (
+            patch("lmdk.provider.requests.post", return_value=mock_resp),
+            pytest.raises(AuthenticationError) as exc_info,
+        ):
+            fake_provider._make_request("https://example.com", json={})
         assert exc_info.value.status_code == 401
         assert exc_info.value.body == "bad key"
 
     def test_429_raises_rate_limit(self, fake_provider):
         mock_resp = _mock_http_response(429, reason="Too Many Requests")
-        with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            with pytest.raises(RateLimitError) as exc_info:
-                fake_provider._make_request("https://example.com", json={})
+        with (
+            patch("lmdk.provider.requests.post", return_value=mock_resp),
+            pytest.raises(RateLimitError) as exc_info,
+        ):
+            fake_provider._make_request("https://example.com", json={})
         assert exc_info.value.status_code == 429
 
     def test_500_raises_internal_server_error(self, fake_provider):
         mock_resp = _mock_http_response(500, reason="Internal Server Error")
-        with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            with pytest.raises(InternalServerError) as exc_info:
-                fake_provider._make_request("https://example.com", json={})
+        with (
+            patch("lmdk.provider.requests.post", return_value=mock_resp),
+            pytest.raises(InternalServerError) as exc_info,
+        ):
+            fake_provider._make_request("https://example.com", json={})
         assert exc_info.value.status_code == 500
 
 

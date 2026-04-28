@@ -95,7 +95,7 @@ def complete(
         except Exception as exc:
             errors[m] = exc
 
-    # raise paricular error if one model or error summary if many
+    # raise particular error if one model or error summary if many
     if len(errors) == 1:
         raise next(iter(errors.values()))
     raise AllModelsFailedError(errors)

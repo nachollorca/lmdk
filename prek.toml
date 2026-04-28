@@ -1,0 +1,69 @@
+default_install_hook_types = ["pre-commit", "commit-msg", "pre-push"]
+
+# Generic file hygiene --------------------------------------------------------
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v6.0.0"
+hooks = [
+  { id = "no-commit-to-branch" },
+  { id = "trailing-whitespace" },
+  { id = "end-of-file-fixer" },
+  { id = "mixed-line-ending", args = ["--fix=lf"] },
+  { id = "check-merge-conflict" },
+  { id = "check-added-large-files" },
+  { id = "check-toml" },
+  { id = "check-yaml" },
+  { id = "pretty-format-json", args = ["--autofix", "--indent=4", "--no-ensure-ascii"] },
+]
+
+# Commit message / branch conventions -----------------------------------------
+[[repos]]
+repo = "https://github.com/commitizen-tools/commitizen"
+rev = "v4.13.10"
+hooks = [
+  { id = "commitizen", stages = ["commit-msg"] },
+  { id = "commitizen-branch", stages = ["pre-push"] },
+]
+
+# Spell checking --------------------------------------------------------------
+[[repos]]
+repo = "https://github.com/codespell-project/codespell"
+rev  = "v2.3.0"
+hooks = [{ id = "codespell" }]
+
+# Secret scanning -------------------------------------------------------------
+[[repos]]
+repo = "https://github.com/gitleaks/gitleaks"
+rev = "v8.30.1"
+hooks = [{ id = "gitleaks" }]
+
+# Local project hooks (delegated to justfile) ---------------------------------
+[[repos]]
+repo = "local"
+
+# Format: ruff isort fixes + ruff format
+[[repos.hooks]]
+id = "ruff-format"
+name = "ruff-format"
+entry = "just format"
+language = "system"
+types = ["python"]
+pass_filenames = false
+
+# Static type checking via ty
+[[repos.hooks]]
+id = "check-types"
+name = "check-types"
+entry = "just check-types"
+language = "system"
+types = ["python"]
+pass_filenames = false
+
+# Cyclomatic complexity via complexipy
+[[repos.hooks]]
+id = "check-complexity"
+name = "check-complexity"
+entry = "just check-complexity"
+language = "system"
+types = ["python"]
+pass_filenames = false

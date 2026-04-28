@@ -1,59 +1,40 @@
+# Project metadata ------------------------------------------------------------
 [project]
 name = "lmdk"
 version = "1.5.0"
 description = "Language Model Development Kit."
+requires-python = ">=3.12"
 license = { text = "MIT" }
-requires-python = ">=3.12,<3.14"
-readme = "README.md"  # stupid but necessary for PyPi
+readme = "README.md"
+authors = [{ name = "Ignacio Llorca", email = "nllorca@proton.me" }]
 dependencies = [
     "jinja2>=3.1.6",
     "pydantic>=2.12.5",
     "requests>=2.32.5",
 ]
 
-[tool.uv]
-package = true
-
-# use this to install local dependencies
-# [tool.uv.sources]
-# package = { path = "<relative path to package>", edit = True }
-
-[dependency-groups]
-dev = [
-    "pytest-cov",
-]  # complexipy, ruff, ty are run via uvx
-
 [project.urls]
 Homepage = "https://github.com/nachollorca/lmdk"
 
+# Dev / optional dependencies -------------------------------------------------
+[dependency-groups]
+dev = [
+    "complexipy",
+    "pytest-cov",
+    "ruff",
+    "ty",
+]
+
+# Build backend ---------------------------------------------------------------
+[build-system]
+requires = ["uv_build>=0.11.1,<0.12.0"]
+build-backend = "uv_build"
+
+# Pytest ----------------------------------------------------------------------
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/lmdk"]
-
-[tool.ruff]
-fix = true
-line-length = 100
-
-[tool.ruff.lint.pydocstyle]
-convention = "google"
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["D"]
-"example.py" = ["D"]
-
-[tool.ruff.lint.isort]
-combine-as-imports = true
-
-[tool.ruff.lint]
-select = ["D", "E", "F"]
-ignore = ["D105", "D107"]
-
+# Coverage --------------------------------------------------------------------
 [tool.coverage.run]
 source = ["src"]
 omit = ["tests/*"]
@@ -65,9 +46,26 @@ exclude_lines = [
     "if TYPE_CHECKING:",
 ]
 
+# Ruff (lint + format) --------------------------------------------------------
+[tool.ruff]
+fix = true
+line-length = 100
+
+[tool.ruff.lint]
+select = ["D", "E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["D105", "D107"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D", "E501", "E402"]
+"example.py" = ["D", "E501"]
+
+# Semantic release (automated versioning from conventional commits) -----------
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
-build_command = ""
+build_command = ""  # We do this using uv in the CI verify.yaml workflow
 commit_message = "chore: release {version}"
 commit_parser = "conventional"
 tag_format = "v{version}"
@@ -76,3 +74,8 @@ changelog_file = false
 [tool.semantic_release.branches.main]
 match = "main"
 prerelease = false
+
+# Spelling --------------------------------------------------------------------
+# [tool.codespell]
+# skip = ["", ""]  # Comma separated list of regex strings to ignore files for the spelling check
+# ignore-words-list = "firstword,secondword"  # Specific strings to accept
