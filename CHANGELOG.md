@@ -148,7 +148,7 @@
 - Add more errors
   ([`2dab995`](https://github.com/nachollorca/lmdk/commit/2dab995829ebac66ef3bbc4b90c3120a0ce5bbfa))
 
-- Add structured output and steram to mistral provider
+- Add structured output and stream to mistral provider
   ([`b90d0f4`](https://github.com/nachollorca/lmdk/commit/b90d0f40b34099389b930970089b77796771c76d))
 
 - Add vertex provider

@@ -102,10 +102,7 @@ def render_template(
 
     from jinja2 import Template  # lazy load
 
-    if path is not None:
-        template_content = Path(path).read_text()
-    else:
-        template_content = template
+    template_content = Path(path).read_text() if path is not None else template
 
     processed_args = [
         arg.replace("{{", "").replace("}}", "").strip() if isinstance(arg, str) else arg

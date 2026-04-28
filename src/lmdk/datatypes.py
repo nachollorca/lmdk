@@ -66,7 +66,7 @@ T = TypeVar("T", bound=BaseModel | list | None)
 
 
 @dataclass
-class CompletionResponse(RawResponse, Generic[T]):
+class CompletionResponse(RawResponse, Generic[T]):  # noqa: UP046
     """The result of a completion call, including usage and parsed pydantic objects.
 
     You can hint the type of the expected object in ``.parsed`` field using annotation

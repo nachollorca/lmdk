@@ -27,7 +27,7 @@ class Provider(ABC):
         - ``CompletionResponse`` construction
 
     It also provides utilities to be used in the concrete providers:
-        - ``_iter_sse_chunks`` to recieve streamed responses
+        - ``_iter_sse_chunks`` to receive streamed responses
         - ``_make_request`` to make the POST HTTP request and handle errors
 
     Concrete providers implement:

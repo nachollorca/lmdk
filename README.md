@@ -151,7 +151,7 @@ We use `just` for development tasks. Use:
 - `just sync`: Updates lockfile and syncs environment.
 - `just format`: Lints and formats with `ruff`.
 - `just check-types`: Static analysis with `ty`.
-- `just analyze-complexity`: Cyclomatic complexity checks with `complexipy`.
+- `just check-complexity`: Cyclomatic complexity checks with `complexipy`.
 - `just test`: Runs pytest with 90% coverage threshold.
 
 ### Contribute
@@ -164,3 +164,5 @@ You can use `just validate <model>` (runs `example.py`) to verify which features
 
 ## License
 MIT
+
+_Done with [`mold`](https://github.com/nachollorca/mold) template_

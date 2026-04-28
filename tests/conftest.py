@@ -7,7 +7,6 @@ import pytest
 from lmdk.datatypes import (
     AssistantMessage,
     CompletionRequest,
-    CompletionResponse,
     Message,
     UserMessage,
 )

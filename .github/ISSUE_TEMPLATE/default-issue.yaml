@@ -1,6 +1,5 @@
 name: Default Issue
 description: File a default issue with structured information
-projects: ["quak"]
 body:
   - type: markdown
     attributes:
@@ -20,7 +19,7 @@ body:
     id: proposed-solution
     attributes:
       label: Proposed solution
-      description: How could the problem be solved?
+      description: "How could the problem be solved?\n\nLeave empty for underspecified."
       placeholder: "1. Change script X to do Y\n2. Remove Z\n3. Write more tests for Y"
     validations:
       required: true
@@ -29,7 +28,7 @@ body:
     id: testing-criteria
     attributes:
       label: Testing criteria
-      description: How can a reviewer verify the issue is solved?
+      description: "How can a reviewer verify the issue is solved?\n\nLeave empty for underspecified."
       placeholder: "- [ ]  Performance is improved\n- [ ] Tests pass"
     validations:
       required: true
