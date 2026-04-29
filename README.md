@@ -22,7 +22,7 @@ If you are looking for a more constrained but out-of-the-box agent interface, I'
 If you are looking to keep granular control but extend on tools or multimodality, I'd recommend [litellm](https://docs.litellm.ai/docs/) or leveraging the OpenAI-compatible endpoints that providers normally set up.
 If you want a unified a token for all providers and are willing to give away telemetry data, check Gateways like [openrouter](https://openrouter.ai).
 
-## Install
+## Installation
 `uv add lmdk`
 
 ## Usage
