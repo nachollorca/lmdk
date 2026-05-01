@@ -154,6 +154,8 @@ We use `just` for development tasks. Use:
 - `just check-complexity`: Cyclomatic complexity checks with `complexipy`.
 - `just test`: Runs pytest with 90% coverage threshold.
 
+See [`justfile`](justfile) for a complete list of dev commands.
+
 ### Contribute
 1. **Hooks**: Install pre-commit hooks via `just install-hooks`. PRs will fail CI if linting/formatting is not applied.
 2. **Issues**: Open an issue first using the default template.
@@ -165,4 +167,4 @@ You can use `just validate <model>` (runs `example.py`) to verify which features
 ## License
 MIT
 
-_Done with [`mold`](https://github.com/nachollorca/mold) template_
+_Made with [`mold`](https://github.com/nachollorca/mold) template_
