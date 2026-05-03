@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.6.0 (2026-05-03)
+
+### Continuous Integration
+
+- Remove duplicated arguments
+  ([`9023803`](https://github.com/nachollorca/lmdk/commit/9023803caeec68e180b73ead21fdd9a9ecf8f679))
+
+- Upgrade template to mold
+  ([`0affd87`](https://github.com/nachollorca/lmdk/commit/0affd87cc20f89dac6b3389cd158831dd443b224))
+
+### Features
+
+- **core**: Allow users to get the CompletionRequest (including prompt) when calling the LMs
+  ([`dc499ed`](https://github.com/nachollorca/lmdk/commit/dc499ed82e732a3861396f415b1bc2d0ab52d6fa))
+
+
 ## v1.5.0 (2026-04-13)
 
 ### Features
