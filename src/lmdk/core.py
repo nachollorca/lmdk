@@ -22,6 +22,7 @@ def complete(
     *,
     stream: Literal[True],
     generation_kwargs: dict | None = None,
+    return_request: bool = False,
 ) -> Iterator[str]: ...  # stream=True  -> yields tokens one by one
 
 
@@ -33,6 +34,7 @@ def complete(
     output_schema: type[BaseModel] | None = None,
     stream: Literal[False] = False,
     generation_kwargs: dict | None = None,
+    return_request: bool = False,
 ) -> CompletionResponse: ...  # stream=False (default) -> complete response
 
 
@@ -43,6 +45,7 @@ def complete(
     output_schema: type[BaseModel] | None = None,
     stream: bool = False,
     generation_kwargs: dict | None = None,
+    return_request: bool = False,
 ) -> CompletionResponse | Iterator[str]:
     """Generate a response from a language model.
 
@@ -58,6 +61,8 @@ def complete(
         generation_kwargs: Additional generation parameters forwarded to the
             provider (e.g. ``temperature``, ``max_tokens``).
             Defaults to ``{"temperature": 0}``.
+        return_request: If ``True``, attaches the generated ``CompletionRequest`` to the
+            returned ``CompletionResponse``. Ignored if *stream* is ``True``.
 
     Returns:
         A ``CompletionResponse`` with the generated content and metadata, or an
@@ -91,7 +96,10 @@ def complete(
         )
         try:
             # call provider and hopefully return response
-            return provider.complete(request=request, stream=stream)
+            response = provider.complete(request=request, stream=stream)
+            if return_request and not stream and isinstance(response, CompletionResponse):
+                response.request = request
+            return response
         except Exception as exc:
             errors[m] = exc
 
@@ -108,6 +116,7 @@ def complete_batch(
     output_schema: type[BaseModel] | None = None,
     generation_kwargs: dict[str, Any] | None = None,
     max_workers: int = 10,
+    return_request: bool = False,
 ) -> list[CompletionResponse | Exception]:
     """Generate responses for multiple conversations in parallel.
 
@@ -124,6 +133,8 @@ def complete_batch(
         generation_kwargs: Additional generation parameters forwarded to the
             provider (e.g. ``temperature``, ``max_tokens``).
         max_workers: Maximum number of concurrent threads.
+        return_request: If ``True``, attaches the generated ``CompletionRequest`` to each
+            returned ``CompletionResponse``.
 
     Returns:
         A list with one entry per conversation, in the same order as
@@ -136,6 +147,7 @@ def complete_batch(
         "output_schema": output_schema,
         "stream": False,
         "generation_kwargs": generation_kwargs,
+        "return_request": return_request,
     }
     params_list = [{**shared_kwargs, "prompt": prompt} for prompt in prompt_list]
 
