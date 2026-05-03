@@ -1,7 +1,7 @@
 """Contains the data contracts used across the app."""
 
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from itertools import chain
 from typing import Any, Generic, TypeVar
 
@@ -79,10 +79,13 @@ class CompletionResponse(RawResponse, Generic[T]):  # noqa: UP046
         latency: The time in seconds taken to generate the response.
         parsed: Optional parsed structured output as a BaseModel instance, list of models, or None
             if no output schema was specified.
+        request: The ``CompletionRequest`` used to generate this response. Only populated if
+            the response was requested with ``return_request=True``.
     """
 
     latency: float = 0.0
     parsed: T | None = None
+    request: CompletionRequest | None = field(default=None, repr=False)
 
     @property
     def message(self):
