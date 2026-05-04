@@ -46,10 +46,12 @@ class _CompletionTelemetry:
         span: Any,
         token_usage_histogram: Any,
         metric_attributes: dict[str, Any],
+        capture_content: bool,
     ) -> None:
         self._span = span
         self._token_usage_histogram = token_usage_histogram
         self._metric_attributes = metric_attributes
+        self._capture_content = capture_content
 
     def record_response(self, response: CompletionResponse) -> None:
         """Record response token usage on the current span and meter."""
@@ -57,6 +59,18 @@ class _CompletionTelemetry:
         self._record_token_count(response.output_tokens, "output")
         self._span.set_attribute("gen_ai.usage.input_tokens", response.input_tokens)
         self._span.set_attribute("gen_ai.usage.output_tokens", response.output_tokens)
+        if self._capture_content:
+            self._span.set_attribute(
+                "gen_ai.output.messages",
+                json.dumps(
+                    [
+                        {
+                            "role": "assistant",
+                            "parts": [{"type": "text", "content": response.content}],
+                        }
+                    ]
+                ),
+            )
 
     def _record_token_count(self, token_count: int | None, token_type: str) -> None:
         if token_count is None:
@@ -107,11 +121,13 @@ def traced_completion(
         f"chat {model_id}",
         kind=SpanKind.CLIENT,
         attributes=span_attributes,
+        record_exception=False,
     ) as span:
         telemetry = _CompletionTelemetry(
             span=span,
             token_usage_histogram=token_usage_histogram,
             metric_attributes=metric_attributes,
+            capture_content=mode == "content",
         )
         try:
             yield telemetry

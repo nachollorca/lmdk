@@ -124,6 +124,7 @@ def test_metadata_mode_records_span_attributes_and_metrics(
     assert span.attributes["gen_ai.usage.output_tokens"] == 5
     assert "gen_ai.input.messages" not in span.attributes
     assert "gen_ai.system_instructions" not in span.attributes
+    assert "gen_ai.output.messages" not in span.attributes
 
     duration_points = _metric_points(metric_reader, "gen_ai.client.operation.duration")
     assert len(duration_points) == 1
@@ -141,7 +142,7 @@ def test_metadata_mode_records_span_attributes_and_metrics(
     }
 
 
-def test_content_mode_records_prompt_and_system_instruction(monkeypatch, otel_setup):
+def test_content_mode_records_prompt_system_instruction_and_response(monkeypatch, otel_setup):
     span_exporter, _ = otel_setup
     monkeypatch.setenv("LMDK_TELEMETRY", "content")
 
@@ -154,6 +155,9 @@ def test_content_mode_records_prompt_and_system_instruction(monkeypatch, otel_se
     ]
     assert json.loads(span.attributes["gen_ai.system_instructions"]) == [
         {"type": "text", "content": "system secret"}
+    ]
+    assert json.loads(span.attributes["gen_ai.output.messages"]) == [
+        {"role": "assistant", "parts": [{"type": "text", "content": "ok"}]}
     ]
 
 

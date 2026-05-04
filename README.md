@@ -147,13 +147,13 @@ OpenTelemetry-based spans and metrics, install the optional extra and set `LMDK_
 ```bash
 uv add 'lmdk[telemetry]'
 export LMDK_TELEMETRY=metadata  # spans/metrics without prompt text
-# export LMDK_TELEMETRY=content  # also records prompt and system-instruction text
+# export LMDK_TELEMETRY=content  # also records prompt, system-instruction, and response text
 ```
 
 Supported modes:
 - unset, empty, `off`, `0`, `false`: disabled (default)
 - `metadata`: spans and metrics only
-- `content`: metadata plus prompt and system-instruction capture
+- `content`: metadata plus prompt, system-instruction, and response capture
 - `on`, `1`, `true`: accepted aliases for `metadata`
 
 lmdk only emits telemetry through the currently configured OpenTelemetry SDK. Your application owns
