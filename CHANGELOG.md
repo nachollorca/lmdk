@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.1 (2026-05-05)
+
+### Bug Fixes
+
+- **openai**: Generation kwargs
+  ([`7090c7f`](https://github.com/nachollorca/lmdk/commit/7090c7fe0024c28182c0b4f436ce0b8299da250d))
+
+
 ## v1.6.0 (2026-05-03)
 
 ### Continuous Integration
