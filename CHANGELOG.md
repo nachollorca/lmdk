@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v1.7.0 (2026-05-06)
+
+### Continuous Integration
+
+- Remove the otel exporter dep
+  ([`7c1086f`](https://github.com/nachollorca/lmdk/commit/7c1086f7be8a6194be9a5d41356fb4f420eb8c7b))
+
+### Documentation
+
+- **readme**: Add telemetry exporter info
+  ([`b2d388e`](https://github.com/nachollorca/lmdk/commit/b2d388e8e0faee94459800a25b367f426964445e))
+
+### Refactoring
+
+- **telemetry**: Make it leaner
+  ([`dd242d1`](https://github.com/nachollorca/lmdk/commit/dd242d1f3a25f42ae918df00f0bc4d9fc3fa0106))
+
+
 ## v1.6.1 (2026-05-05)
 
 ### Bug Fixes
