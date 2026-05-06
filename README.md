@@ -141,8 +141,8 @@ result = render_template(
 
 ## Telemetry
 
-Telemetry is off by default and adds no required dependencies to the default install. To enable
-OpenTelemetry-based spans and metrics, install the optional extra and set `LMDK_TELEMETRY`:
+Telemetry is off by default and adds no required dependencies to the default install.
+To enable **OpenTelemetry**-based spans and metrics, install the optional extra and set `LMDK_TELEMETRY`:
 
 ```bash
 uv add 'lmdk[telemetry]'
@@ -150,38 +150,80 @@ export LMDK_TELEMETRY=metadata  # spans/metrics without prompt text
 # export LMDK_TELEMETRY=content  # also records prompt, system-instruction, and response text
 ```
 
-Supported modes:
-- unset, empty, `off`, `0`, `false`: disabled (default)
-- `metadata`: spans and metrics only
-- `content`: metadata plus prompt, system-instruction, and response capture
-- `on`, `1`, `true`: accepted aliases for `metadata`
+We follows the experimental [**Gen AI semconv**](https://opentelemetry.io/docs/specs/semconv/gen-ai/) v1.41.0. We only instrument non-streaming responses for now.
 
-lmdk only emits telemetry through the currently configured OpenTelemetry SDK. Your application owns
-exporter, processor, reader, collector endpoint, and bucket-boundary configuration. Minimal console
-example:
+`lmdk` only emits telemetry through the OpenTelemetry SDK. Your application owns exporter, processor, reader, collector endpoint, i.e.: you decide how and where to send the emitted traces.
+
+Below are some minimal exporter setups. Call them once at process start before invoking `complete` / `complete_batch`.
+
+<details>
+<summary>Console (debugging)</summary>
+
+Prints spans to stdout. Useful to verify instrumentation locally without any backend.
 
 ```python
-from opentelemetry import metrics, trace
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import ConsoleMetricExporter, PeriodicExportingMetricReader
+from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
-trace_provider = TracerProvider()
-trace_provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
-trace.set_tracer_provider(trace_provider)
 
-metric_reader = PeriodicExportingMetricReader(ConsoleMetricExporter())
-metrics.set_meter_provider(MeterProvider(metric_readers=[metric_reader]))
+def configure_console_traces() -> None:
+    provider = TracerProvider()
+    provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+    trace.set_tracer_provider(provider)
 ```
+</details>
 
-For production, configure an OTLP exporter/collector in your application (for example via standard
-`OTEL_EXPORTER_OTLP_ENDPOINT` settings) and keep export policy outside lmdk.
+<details>
+<summary>Pydantic Logfire</summary>
 
-Telemetry targets the experimental OpenTelemetry GenAI semantic conventions v1.41.0. The emitted
-schema may evolve as those conventions change. In this first implementation only non-streaming
-`complete()` calls are instrumented; streaming calls are intentionally skipped and keep their existing
-behavior.
+Logfire installs itself as the global `TracerProvider`, so spans emitted by `lmdk` are forwarded automatically. Requires `uv add logfire` and a `LOGFIRE_TOKEN`.
+
+```python
+import os
+import logfire
+
+
+def configure_logfire_traces() -> None:
+    logfire.configure(
+        token=os.environ["LOGFIRE_TOKEN"],
+        service_name="my-app",
+        # lmdk already controls prompt/response redaction via LMDK_TELEMETRY;
+        # don't let Logfire second-guess scrubbing of content.
+        scrubbing=False,
+        send_to_logfire=True,
+    )
+```
+</details>
+
+<details>
+<summary>Grafana (OTLP / Tempo)</summary>
+
+Ship spans over OTLP to Grafana Cloud (or a self-hosted Tempo + OTel Collector). Requires `uv add opentelemetry-exporter-otlp`.
+
+```python
+import os
+
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+
+def configure_grafana_traces() -> None:
+    # For Grafana Cloud OTLP, set:
+    #   OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-<region>.grafana.net/otlp
+    #   OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20<base64(instanceID:token)>
+    exporter = OTLPSpanExporter(
+        endpoint=os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] + "/v1/traces",
+    )
+    provider = TracerProvider(resource=Resource.create({"service.name": "my-app"}))
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+    trace.set_tracer_provider(provider)
+```
+</details>
+
 
 ## Development
 
