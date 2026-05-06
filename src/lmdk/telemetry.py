@@ -16,9 +16,6 @@ from lmdk.datatypes import CompletionRequest, CompletionResponse
 
 TelemetryMode = Literal["off", "metadata", "content"]
 
-_OFF_VALUES = {"", "off", "0", "false"}
-_METADATA_VALUES = {"metadata", "on", "1", "true"}
-_CONTENT_VALUES = {"content"}
 _REQUEST_ATTRIBUTE_NAMES = {
     "temperature": "gen_ai.request.temperature",
     "top_p": "gen_ai.request.top_p",
@@ -30,33 +27,35 @@ _REQUEST_ATTRIBUTE_NAMES = {
 }
 
 
-class _NoopCompletionTelemetry:
-    """Completion telemetry handle used when instrumentation is disabled."""
-
-    def record_response(self, response: CompletionResponse) -> None:
-        """Accept a response without recording telemetry."""
-
-
 class _CompletionTelemetry:
-    """Completion telemetry handle backed by an active OpenTelemetry span."""
+    """Completion telemetry handle. A no-op when ``span`` is ``None``."""
 
     def __init__(
         self,
         *,
-        span: Any,
-        token_usage_histogram: Any,
-        metric_attributes: dict[str, Any],
-        capture_content: bool,
+        span: Any = None,
+        token_usage_histogram: Any = None,
+        metric_attributes: dict[str, Any] | None = None,
+        capture_content: bool = False,
     ) -> None:
         self._span = span
         self._token_usage_histogram = token_usage_histogram
-        self._metric_attributes = metric_attributes
+        self._metric_attributes = metric_attributes or {}
         self._capture_content = capture_content
 
     def record_response(self, response: CompletionResponse) -> None:
         """Record response token usage on the current span and meter."""
-        self._record_token_count(response.input_tokens, "input")
-        self._record_token_count(response.output_tokens, "output")
+        if self._span is None:
+            return
+        for token_count, token_type in (
+            (response.input_tokens, "input"),
+            (response.output_tokens, "output"),
+        ):
+            if token_count is not None:
+                self._token_usage_histogram.record(
+                    token_count,
+                    attributes={**self._metric_attributes, "gen_ai.token.type": token_type},
+                )
         self._span.set_attribute("gen_ai.usage.input_tokens", response.input_tokens)
         self._span.set_attribute("gen_ai.usage.output_tokens", response.output_tokens)
         if self._capture_content:
@@ -72,12 +71,6 @@ class _CompletionTelemetry:
                 ),
             )
 
-    def _record_token_count(self, token_count: int | None, token_type: str) -> None:
-        if token_count is None:
-            return
-        attributes = {**self._metric_attributes, "gen_ai.token.type": token_type}
-        self._token_usage_histogram.record(token_count, attributes=attributes)
-
 
 @contextmanager
 def traced_completion(
@@ -85,98 +78,80 @@ def traced_completion(
     model_id: str,
     request: CompletionRequest,
     fallback_index: int,
-) -> Generator[_NoopCompletionTelemetry | _CompletionTelemetry]:
+) -> Generator[_CompletionTelemetry]:
     """Trace a non-streaming completion attempt if lmdk telemetry is enabled."""
     mode = _get_telemetry_mode()
-    if mode == "off":
-        yield _NoopCompletionTelemetry()
-        return
-
-    otel = _load_otel()
+    otel = _load_otel() if mode != "off" else None
     if otel is None:
-        yield _NoopCompletionTelemetry()
+        yield _CompletionTelemetry()
         return
 
-    trace, metrics, SpanKind, Status, StatusCode = otel
+    trace, metrics = otel
     model_name, location = _split_model_and_location(model_id)
     span_attributes = _span_attributes(provider_name, model_name, location, request, fallback_index)
     if mode == "content":
         span_attributes.update(_content_attributes(request))
 
-    metric_attributes = _metric_attributes(provider_name, model_name)
+    metric_attributes = {
+        "gen_ai.provider.name": provider_name,
+        "gen_ai.request.model": model_name,
+    }
     meter = metrics.get_meter("lmdk")
-    duration_histogram = meter.create_histogram(
-        "gen_ai.client.operation.duration",
-        unit="s",
-    )
-    token_usage_histogram = meter.create_histogram(
-        "gen_ai.client.token.usage",
-        unit="{token}",
-    )
+    duration_histogram = meter.create_histogram("gen_ai.client.operation.duration", unit="s")
+    token_usage_histogram = meter.create_histogram("gen_ai.client.token.usage", unit="{token}")
 
     start = time.perf_counter()
     error_type: str | None = None
     tracer = trace.get_tracer("lmdk")
     with tracer.start_as_current_span(
         f"chat {model_id}",
-        kind=SpanKind.CLIENT,
+        kind=trace.SpanKind.CLIENT,
         attributes=span_attributes,
         record_exception=False,
     ) as span:
-        telemetry = _CompletionTelemetry(
-            span=span,
-            token_usage_histogram=token_usage_histogram,
-            metric_attributes=metric_attributes,
-            capture_content=mode == "content",
-        )
         try:
-            yield telemetry
+            yield _CompletionTelemetry(
+                span=span,
+                token_usage_histogram=token_usage_histogram,
+                metric_attributes=metric_attributes,
+                capture_content=mode == "content",
+            )
         except Exception as exc:
             error_type = type(exc).__name__
             span.record_exception(exc)
-            span.set_status(Status(StatusCode.ERROR))
+            span.set_status(trace.Status(trace.StatusCode.ERROR))
             span.set_attribute("error.type", error_type)
             raise
         finally:
             duration_attributes = dict(metric_attributes)
             if error_type is not None:
                 duration_attributes["error.type"] = error_type
-            duration_histogram.record(
-                time.perf_counter() - start,
-                attributes=duration_attributes,
-            )
+            duration_histogram.record(time.perf_counter() - start, attributes=duration_attributes)
 
 
 def _get_telemetry_mode() -> TelemetryMode:
     value = os.getenv("LMDK_TELEMETRY", "").strip().lower()
-    if value in _CONTENT_VALUES:
+    if value == "content":
         return "content"
-    if value in _METADATA_VALUES:
+    if value in {"metadata", "on", "1", "true"}:
         return "metadata"
     return "off"
 
 
-def _load_otel() -> tuple[Any, Any, Any, Any, Any] | None:
+def _load_otel() -> tuple[Any, Any] | None:
     try:
         trace = importlib.import_module("opentelemetry.trace")
         metrics = importlib.import_module("opentelemetry.metrics")
     except ImportError:
         return None
-
-    return (
-        trace,
-        metrics,
-        trace.SpanKind,
-        trace.Status,
-        trace.StatusCode,
-    )
+    return trace, metrics
 
 
 def _split_model_and_location(model_id: str) -> tuple[str, str | None]:
-    model_name, separator, location = model_id.rpartition("@")
-    if not separator or not model_name or not location:
-        return model_id, None
-    return model_name, location
+    model_name, _, location = model_id.rpartition("@")
+    if model_name and location:
+        return model_name, location
+    return model_id, None
 
 
 def _span_attributes(
@@ -200,13 +175,6 @@ def _span_attributes(
             attributes[attribute_name] = value
 
     return attributes
-
-
-def _metric_attributes(provider_name: str, model_name: str) -> dict[str, Any]:
-    return {
-        "gen_ai.provider.name": provider_name,
-        "gen_ai.request.model": model_name,
-    }
 
 
 def _content_attributes(request: CompletionRequest) -> dict[str, str]:
