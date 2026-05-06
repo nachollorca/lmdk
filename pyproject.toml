@@ -16,6 +16,12 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/nachollorca/lmdk"
 
+[project.optional-dependencies]
+telemetry = [
+    "opentelemetry-api>=1.38.0",
+    "opentelemetry-sdk>=1.38.0",
+]
+
 # Dev / optional dependencies -------------------------------------------------
 [dependency-groups]
 dev = [

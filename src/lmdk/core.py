@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from lmdk.datatypes import CompletionRequest, CompletionResponse, Message, UserMessage
 from lmdk.errors import AllModelsFailedError
 from lmdk.provider import load_provider
+from lmdk.telemetry import traced_completion
 from lmdk.utils import parallelize_function
 
 # @overload stubs let type checkers infer the return type of ``complete`` based on ``stream``
@@ -77,29 +78,23 @@ def complete(
 
     # set defaults and normalize overloaded params
     models = [model] if isinstance(model, str) else model
-    if isinstance(prompt, str):
-        prompt = [UserMessage(content=prompt)]
-    if generation_kwargs is None:
-        generation_kwargs = {"temperature": 0}
+    prompt = _normalize_prompt(prompt)
+    generation_kwargs = _default_generation_kwargs(generation_kwargs)
 
     # fallback loop
     errors: dict[str, Exception] = {}
-    for m in models:
-        provider_name, model_id = m.split(":")
-        provider = load_provider(name=provider_name)
-        request = CompletionRequest(
-            model_id=model_id,
-            prompt=prompt,
-            system_instruction=system_instruction,
-            output_schema=output_schema,
-            generation_kwargs=generation_kwargs,
-        )
+    for i, m in enumerate(models):
         try:
-            # call provider and hopefully return response
-            response = provider.complete(request=request, stream=stream)
-            if return_request and not stream and isinstance(response, CompletionResponse):
-                response.request = request
-            return response
+            return _complete_model(
+                model=m,
+                prompt=prompt,
+                system_instruction=system_instruction,
+                output_schema=output_schema,
+                stream=stream,
+                generation_kwargs=generation_kwargs,
+                return_request=return_request,
+                fallback_index=i,
+            )
         except Exception as exc:
             errors[m] = exc
 
@@ -107,6 +102,53 @@ def complete(
     if len(errors) == 1:
         raise next(iter(errors.values()))
     raise AllModelsFailedError(errors)
+
+
+def _normalize_prompt(prompt: str | Sequence[Message]) -> Sequence[Message]:
+    if isinstance(prompt, str):
+        return [UserMessage(content=prompt)]
+    return prompt
+
+
+def _default_generation_kwargs(generation_kwargs: dict | None) -> dict:
+    if generation_kwargs is None:
+        return {"temperature": 0}
+    return generation_kwargs
+
+
+def _complete_model(
+    *,
+    model: str,
+    prompt: Sequence[Message],
+    system_instruction: str | None,
+    output_schema: type[BaseModel] | None,
+    stream: bool,
+    generation_kwargs: dict,
+    return_request: bool,
+    fallback_index: int,
+) -> CompletionResponse | Iterator[str]:
+    provider_name, model_id = model.split(":", maxsplit=1)
+    provider = load_provider(name=provider_name)
+    request = CompletionRequest(
+        model_id=model_id,
+        prompt=prompt,
+        system_instruction=system_instruction,
+        output_schema=output_schema,
+        generation_kwargs=generation_kwargs,
+    )
+
+    if stream:
+        return provider.complete(request=request, stream=True)
+
+    with traced_completion(
+        provider_name, model_id, request, fallback_index=fallback_index
+    ) as telemetry:
+        response = provider.complete(request=request, stream=False)
+        if isinstance(response, CompletionResponse):
+            telemetry.record_response(response)
+            if return_request:
+                response.request = request
+        return response
 
 
 def complete_batch(
