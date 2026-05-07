@@ -190,9 +190,9 @@ def test_content_mode_records_structured_output_with_single_field_unwrapping(
         )
 
     span = span_exporter.get_finished_spans()[0]
-    assert json.loads(span.attributes["lmdk.output.parsed"]) == {"summary": "hi"}
+    assert json.loads(span.attributes["lmdk.parsed"]) == {"summary": "hi"}
     # Single-field BaseModel: ``output`` unwraps to the field value.
-    assert json.loads(span.attributes["lmdk.output.value"]) == "hi"
+    assert json.loads(span.attributes["lmdk.output"]) == "hi"
 
 
 def test_content_mode_records_structured_output_with_multi_field_model(monkeypatch, otel_setup):
@@ -210,8 +210,8 @@ def test_content_mode_records_structured_output_with_multi_field_model(monkeypat
         )
 
     span = span_exporter.get_finished_spans()[0]
-    assert json.loads(span.attributes["lmdk.output.parsed"]) == {"name": "Ada", "age": 36}
-    assert json.loads(span.attributes["lmdk.output.value"]) == {"name": "Ada", "age": 36}
+    assert json.loads(span.attributes["lmdk.parsed"]) == {"name": "Ada", "age": 36}
+    assert json.loads(span.attributes["lmdk.output"]) == {"name": "Ada", "age": 36}
 
 
 def test_fallback_records_one_span_per_non_streaming_attempt(
