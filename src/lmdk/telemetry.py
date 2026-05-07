@@ -77,10 +77,8 @@ class _CompletionTelemetry:
             # ``CompletionResponse.output`` view.
             parsed = getattr(response, "parsed", None)
             if parsed is not None:
-                self._span.set_attribute("lmdk.output.parsed", json.dumps(_to_jsonable(parsed)))
-                self._span.set_attribute(
-                    "lmdk.output.value", json.dumps(_to_jsonable(response.output))
-                )
+                self._span.set_attribute("lmdk.parsed", json.dumps(_to_jsonable(parsed)))
+                self._span.set_attribute("lmdk.output", json.dumps(_to_jsonable(response.output)))
 
 
 @contextmanager
