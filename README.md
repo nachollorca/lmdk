@@ -10,6 +10,7 @@ What it offers:
 - Easy location config (for providers with multiple datacenters like AWS Bedrock, GCP Vertex and Azure)
 - Model fallbacks
 - Bring Your Own Key (for each provider)
+- Optional Telemetry following OpenTelemetry GenAI Semantic Conventions
 
 What it does **NOT** offer:
 - Tools / function calling / MCP
