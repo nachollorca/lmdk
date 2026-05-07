@@ -14,7 +14,6 @@ from lmdk.datatypes import CompletionRequest, CompletionResponse
 
 # Targeted OpenTelemetry GenAI Semantic Conventions version: v1.41.0.
 # TODO: Revisit the targeted semconv version on each lmdk release.
-# TODO: Add finish reasons if provider response contracts expose them later.
 
 TelemetryMode = Literal["off", "metadata", "content"]
 
@@ -72,9 +71,7 @@ class _CompletionTelemetry:
                     ]
                 ),
             )
-            # The OTel GenAI semconv has no attribute for structured output, so we use
-            # ``lmdk.*`` keys to record both the parsed pydantic object and the unwrapped
-            # ``CompletionResponse.output`` view.
+            # The OTel GenAI semconv has no attribute for structured output(yet)
             parsed = getattr(response, "parsed", None)
             if parsed is not None:
                 self._span.set_attribute("lmdk.parsed", json.dumps(_to_jsonable(parsed)))
