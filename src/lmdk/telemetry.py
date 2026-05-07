@@ -8,6 +8,8 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, Literal
 
+from pydantic import BaseModel
+
 from lmdk.datatypes import CompletionRequest, CompletionResponse
 
 # Targeted OpenTelemetry GenAI Semantic Conventions version: v1.41.0.
@@ -70,6 +72,15 @@ class _CompletionTelemetry:
                     ]
                 ),
             )
+            # The OTel GenAI semconv has no attribute for structured output, so we use
+            # ``lmdk.*`` keys to record both the parsed pydantic object and the unwrapped
+            # ``CompletionResponse.output`` view.
+            parsed = getattr(response, "parsed", None)
+            if parsed is not None:
+                self._span.set_attribute("lmdk.output.parsed", json.dumps(_to_jsonable(parsed)))
+                self._span.set_attribute(
+                    "lmdk.output.value", json.dumps(_to_jsonable(response.output))
+                )
 
 
 @contextmanager
@@ -127,6 +138,17 @@ def traced_completion(
             if error_type is not None:
                 duration_attributes["error.type"] = error_type
             duration_histogram.record(time.perf_counter() - start, attributes=duration_attributes)
+
+
+def _to_jsonable(value: Any) -> Any:
+    """Convert pydantic models (and containers thereof) to JSON-serializable data."""
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json")
+    if isinstance(value, list):
+        return [_to_jsonable(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _to_jsonable(item) for key, item in value.items()}
+    return value
 
 
 def _get_telemetry_mode() -> TelemetryMode:
