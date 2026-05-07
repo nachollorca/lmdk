@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v1.8.0 (2026-05-07)
+
+### Bug Fixes
+
+- **telemetry**: Have parsed and output attributes NOT nested
+  ([`6d80bde`](https://github.com/nachollorca/lmdk/commit/6d80bded1bdf46e73f50cffb9941a0edf839a5ab))
+
+### Documentation
+
+- Document optional telemetry feature
+  ([`83a871d`](https://github.com/nachollorca/lmdk/commit/83a871dd530677a816293cd8d5f66b5b135e0ab0))
+
+- **telemetry**: Remove extra comments
+  ([`5e74ab6`](https://github.com/nachollorca/lmdk/commit/5e74ab6a155ff64d941a2a196c303b1b7114683d))
+
+### Testing
+
+- **telemetry**: Adjust tests for the not nested output/parsed
+  ([`ba1d611`](https://github.com/nachollorca/lmdk/commit/ba1d611130e948b3baffc53517b804001fe7496e))
+
+
 ## v1.7.0 (2026-05-06)
 
 ### Continuous Integration
