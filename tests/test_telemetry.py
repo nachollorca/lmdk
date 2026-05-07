@@ -4,9 +4,10 @@ import importlib
 import json
 
 import pytest
+from pydantic import BaseModel
 
 from lmdk.core import complete
-from lmdk.datatypes import CompletionRequest, RawResponse, UserMessage
+from lmdk.datatypes import CompletionRequest, CompletionResponse, RawResponse, UserMessage
 from lmdk.telemetry import traced_completion
 
 
@@ -159,6 +160,58 @@ def test_content_mode_records_prompt_system_instruction_and_response(monkeypatch
     assert json.loads(span.attributes["gen_ai.output.messages"]) == [
         {"role": "assistant", "parts": [{"type": "text", "content": "ok"}]}
     ]
+    assert "lmdk.output.parsed" not in span.attributes
+    assert "lmdk.output.value" not in span.attributes
+
+
+class _Summary(BaseModel):
+    summary: str
+
+
+class _Person(BaseModel):
+    name: str
+    age: int
+
+
+def test_content_mode_records_structured_output_with_single_field_unwrapping(
+    monkeypatch, otel_setup
+):
+    span_exporter, _ = otel_setup
+    monkeypatch.setenv("LMDK_TELEMETRY", "content")
+
+    with traced_completion("fake", "model", _request(), fallback_index=0) as telemetry:
+        telemetry.record_response(
+            CompletionResponse(
+                content='{"summary": "hi"}',
+                input_tokens=1,
+                output_tokens=2,
+                parsed=_Summary(summary="hi"),
+            )
+        )
+
+    span = span_exporter.get_finished_spans()[0]
+    assert json.loads(span.attributes["lmdk.parsed"]) == {"summary": "hi"}
+    # Single-field BaseModel: ``output`` unwraps to the field value.
+    assert json.loads(span.attributes["lmdk.output"]) == "hi"
+
+
+def test_content_mode_records_structured_output_with_multi_field_model(monkeypatch, otel_setup):
+    span_exporter, _ = otel_setup
+    monkeypatch.setenv("LMDK_TELEMETRY", "content")
+
+    with traced_completion("fake", "model", _request(), fallback_index=0) as telemetry:
+        telemetry.record_response(
+            CompletionResponse(
+                content='{"name": "Ada", "age": 36}',
+                input_tokens=1,
+                output_tokens=2,
+                parsed=_Person(name="Ada", age=36),
+            )
+        )
+
+    span = span_exporter.get_finished_spans()[0]
+    assert json.loads(span.attributes["lmdk.parsed"]) == {"name": "Ada", "age": 36}
+    assert json.loads(span.attributes["lmdk.output"]) == {"name": "Ada", "age": 36}
 
 
 def test_fallback_records_one_span_per_non_streaming_attempt(
