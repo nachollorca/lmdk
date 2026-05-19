@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v2.0.0 (2026-05-19)
+
+### Features
+
+- Add first iteration of the Request / Response observer
+  ([`39f3cd3`](https://github.com/nachollorca/lmdk/commit/39f3cd3f18301370e49c479933e5a0e798ce064a))
+
+- **datatypes**: Separate CompletionBatch instead of using CompletionResponse.from_list
+  ([`a7e1069`](https://github.com/nachollorca/lmdk/commit/a7e106904aaa07411696270941c36af6b129f0b6))
+
+- **listener**: Implement observe to catch request/responses, make a listener to keep core lean
+  ([`df3ab31`](https://github.com/nachollorca/lmdk/commit/df3ab31dd03969655a09d3df2077be7ba16e97ea))
+
+### Breaking Changes
+
+- **datatypes**: CompletionResponse.from_list does not exist anymore
+
+
 ## v1.8.0 (2026-05-07)
 
 ### Bug Fixes
