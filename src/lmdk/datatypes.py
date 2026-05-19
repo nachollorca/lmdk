@@ -8,7 +8,7 @@ from typing import Any, Generic, TypeVar
 from pydantic import BaseModel
 
 
-@dataclass
+@dataclass(frozen=True)
 class Message:
     """Represents a single message in a conversation."""
 
@@ -20,14 +20,14 @@ class Message:
         return asdict(self)
 
 
-@dataclass
+@dataclass(frozen=True)
 class UserMessage(Message):
     """Wrapper for a message sent by the user."""
 
     role: str = "user"
 
 
-@dataclass
+@dataclass(frozen=True)
 class AssistantMessage(Message):
     """Wrapper for a message sent by the assistant."""
 
@@ -49,7 +49,7 @@ class CompletionRequest:
     generation_kwargs: dict
 
 
-@dataclass
+@dataclass(frozen=True)
 class RawResponse:
     """Lightweight intermediate result returned by provider implementations.
 
@@ -62,12 +62,12 @@ class RawResponse:
     output_tokens: int
 
 
-T = TypeVar("T", bound=BaseModel | list | None)
+T = TypeVar("T", bound=BaseModel | None)
 
 
-@dataclass
+@dataclass(frozen=True)
 class CompletionResponse(RawResponse, Generic[T]):  # noqa: UP046
-    """The result of a completion call, including usage and parsed pydantic objects.
+    """The result of a single completion call.
 
     You can hint the type of the expected object in ``.parsed`` field using annotation
     ``ParsedResponse[MyPydanticModel]``.
@@ -77,94 +77,28 @@ class CompletionResponse(RawResponse, Generic[T]):  # noqa: UP046
         input_tokens: The number of tokens consumed in the input/prompt.
         output_tokens: The number of tokens generated in the response.
         latency: The time in seconds taken to generate the response.
-        parsed: Optional parsed structured output as a BaseModel instance, list of models, or None
+        parsed: Optional parsed structured output as a BaseModel instance, or None
             if no output schema was specified.
-        request: The ``CompletionRequest`` used to generate this response. Only populated if
-            the response was requested with ``return_request=True``.
     """
 
     latency: float = 0.0
     parsed: T | None = None
-    request: CompletionRequest | None = field(default=None, repr=False)
 
     @property
-    def message(self):
+    def message(self) -> AssistantMessage:
         """Converts the response to an AssistantMessage object."""
         return AssistantMessage(self.content)
 
     @property
-    def output(self):
+    def output(self) -> Any:
         """The most useful representation of the response output.
 
-        This property intelligently extracts the most relevant part of the response:
-        - For single responses with no parsed output: returns the string content
-        - For single responses with a multi-field BaseModel: returns the entire model
-        - For single responses with a single-field BaseModel: returns just that field's value
-        - For aggregated responses (created via from_list): returns processed list of outputs
-
-        This handles common patterns where a BaseModel wraps a single value (e.g., a summary
-        string or a list of segments) for schema validation, automatically unwrapping such
-        single-field models to make the output more convenient to work with.
-
-        Returns:
-            Any: The extracted output - varies based on response structure and whether it's
-                aggregated. Could be a string, BaseModel, list, or any other type.
-        """
-        if isinstance(self.parsed, list):
-            return self._output_for_aggregated_responses()
-        return self._output_for_single_response()
-
-    @classmethod
-    def from_list(cls, responses: list["CompletionResponse"]) -> "CompletionResponse":
-        """Aggregates multiple completion responses into a single response object.
-
-        Combines multiple responses by:
-        - Collecting all parsed outputs into a list
-        - Summing input and output tokens from all responses
-        - Using the maximum latency value from all responses
-
-        Args:
-            responses: A list of CompletionResponse objects to aggregate.
-
-        Returns:
-            CompletionResponse: An aggregated response with empty content, combined token counts,
-                max latency, and all parsed outputs collected in a list.
-        """
-        aggregated_response: CompletionResponse = CompletionResponse(
-            content="", input_tokens=0, output_tokens=0, latency=0, parsed=[]
-        )
-
-        for response in responses:
-            if isinstance(response, CompletionResponse):
-                assert isinstance(aggregated_response.parsed, list)
-                if response.parsed is not None and aggregated_response.parsed is not None:
-                    aggregated_response.parsed.append(response.parsed)
-
-                # update stats
-                aggregated_response.input_tokens += response.input_tokens
-                aggregated_response.output_tokens += response.output_tokens
-                aggregated_response.latency = (
-                    response.latency
-                    if aggregated_response.latency < response.latency
-                    else aggregated_response.latency
-                )
-
-        return aggregated_response
-
-    def _output_for_single_response(self) -> Any:
-        """Extracts the output for a single response object.
-
-        Returns the most useful representation of the parsed output:
         - If there is no parsed structured output, returns the string content.
-        - If there is a parsed object with more than one field, returns the entire object.
-        - If there is a parsed object with just one field, returns the content of that field.
+        - If ``parsed`` is a BaseModel with more than one field, returns the model itself.
+        - If ``parsed`` is a BaseModel with exactly one field, returns that field's value.
 
-        This unwrapping behavior is useful for cases where a BaseModel wraps a single value
-        (e.g., a summary string or a list of segments) for schema validation purposes.
-
-        Returns:
-            Any: The extracted output - either the content string, a BaseModel, or the value
-                of a single field from a BaseModel.
+        The single-field unwrapping is useful when a schema is used purely to coerce a
+        scalar/list value (e.g. a summary string or a list of segments).
         """
         if self.parsed is None:
             return self.content
@@ -178,37 +112,56 @@ class CompletionResponse(RawResponse, Generic[T]):  # noqa: UP046
 
         return self.parsed
 
-    def _output_for_aggregated_responses(self) -> Any:
-        """Extracts the output for aggregated responses (when parsed is a list from from_list).
 
-        Processes a list of parsed outputs by:
-        1. Computing individual outputs using the unwrapping logic in _output_for_single_response
-        2. Flattening the results if all individual outputs are lists
+@dataclass(frozen=True)
+class CompletionBatch:
+    """An aggregate of multiple :class:`CompletionResponse` objects.
 
-        This is useful when aggregating multiple responses where each contains a list of items,
-        allowing you to get a single flat list rather than a list of lists.
+    Use this when you fan out a prompt over many inputs (e.g. via
+    ``complete_batch``) and want a single object that summarises token usage,
+    latency and parsed outputs across the batch.
 
-        Returns:
-            Any: An empty list if parsed is empty. Otherwise, either the individual outputs
-                (possibly flattened if all are lists) or a single flattened list if all
-                individual outputs are lists.
+    Attributes:
+        responses: The individual responses that make up the batch.
+    """
+
+    responses: list[CompletionResponse] = field(default_factory=list)
+
+    @property
+    def input_tokens(self) -> int:
+        """Total input tokens across all responses."""
+        return sum(r.input_tokens for r in self.responses)
+
+    @property
+    def output_tokens(self) -> int:
+        """Total output tokens across all responses."""
+        return sum(r.output_tokens for r in self.responses)
+
+    @property
+    def latency(self) -> float:
+        """The slowest response's latency (the batch is bounded by its tail)."""
+        return max((r.latency for r in self.responses), default=0.0)
+
+    @property
+    def parsed(self) -> list[BaseModel]:
+        """The parsed outputs of each response, skipping responses without one."""
+        return [r.parsed for r in self.responses if r.parsed is not None]
+
+    @property
+    def output(self) -> list[Any]:
+        """The per-response ``.output`` values, flattened if they are all lists.
+
+        Each response's :pyattr:`CompletionResponse.output` is computed individually
+        (so single-field BaseModels are unwrapped). If every resulting value is a
+        list, the lists are concatenated into one flat list; otherwise the list of
+        per-response outputs is returned as-is.
         """
-        if not self.parsed:
+        if not self.responses:
             return []
 
-        # Compute what each individual response.output would be
-        individual_outputs = []
-        for obj in self.parsed:
-            if isinstance(obj, BaseModel) and len(fields := type(obj).model_fields) == 1:
-                # Single field: unwrap it
-                field_name = next(iter(fields.keys()))
-                individual_outputs.append(getattr(obj, field_name))
+        individual = [r.output for r in self.responses]
 
-            else:
-                individual_outputs.append(obj)
+        if individual and all(isinstance(out, list) for out in individual):
+            return list(chain.from_iterable(individual))
 
-        # Flatten if all individual outputs are lists
-        if individual_outputs and all(isinstance(out, list) for out in individual_outputs):
-            return list(chain.from_iterable(individual_outputs))
-
-        return individual_outputs
+        return individual

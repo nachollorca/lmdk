@@ -5,10 +5,10 @@ from typing import Any, Literal, overload
 
 from pydantic import BaseModel
 
+from lmdk._listeners import completion_lifecycle
 from lmdk.datatypes import CompletionRequest, CompletionResponse, Message, UserMessage
 from lmdk.errors import AllModelsFailedError
 from lmdk.provider import load_provider
-from lmdk.telemetry import traced_completion
 from lmdk.utils import parallelize_function
 
 # @overload stubs let type checkers infer the return type of ``complete`` based on ``stream``
@@ -23,7 +23,6 @@ def complete(
     *,
     stream: Literal[True],
     generation_kwargs: dict | None = None,
-    return_request: bool = False,
 ) -> Iterator[str]: ...  # stream=True  -> yields tokens one by one
 
 
@@ -35,10 +34,10 @@ def complete(
     output_schema: type[BaseModel] | None = None,
     stream: Literal[False] = False,
     generation_kwargs: dict | None = None,
-    return_request: bool = False,
 ) -> CompletionResponse: ...  # stream=False (default) -> complete response
 
 
+# TODO: review the responsibilities of `complete` and `_complete_model`
 def complete(
     model: str | list[str],
     prompt: str | Sequence[Message],
@@ -46,7 +45,6 @@ def complete(
     output_schema: type[BaseModel] | None = None,
     stream: bool = False,
     generation_kwargs: dict | None = None,
-    return_request: bool = False,
 ) -> CompletionResponse | Iterator[str]:
     """Generate a response from a language model.
 
@@ -62,8 +60,6 @@ def complete(
         generation_kwargs: Additional generation parameters forwarded to the
             provider (e.g. ``temperature``, ``max_tokens``).
             Defaults to ``{"temperature": 0}``.
-        return_request: If ``True``, attaches the generated ``CompletionRequest`` to the
-            returned ``CompletionResponse``. Ignored if *stream* is ``True``.
 
     Returns:
         A ``CompletionResponse`` with the generated content and metadata, or an
@@ -92,7 +88,6 @@ def complete(
                 output_schema=output_schema,
                 stream=stream,
                 generation_kwargs=generation_kwargs,
-                return_request=return_request,
                 fallback_index=i,
             )
         except Exception as exc:
@@ -124,7 +119,6 @@ def _complete_model(
     output_schema: type[BaseModel] | None,
     stream: bool,
     generation_kwargs: dict,
-    return_request: bool,
     fallback_index: int,
 ) -> CompletionResponse | Iterator[str]:
     provider_name, model_id = model.split(":", maxsplit=1)
@@ -140,14 +134,12 @@ def _complete_model(
     if stream:
         return provider.complete(request=request, stream=True)
 
-    with traced_completion(
+    with completion_lifecycle(
         provider_name, model_id, request, fallback_index=fallback_index
-    ) as telemetry:
+    ) as record:
         response = provider.complete(request=request, stream=False)
         if isinstance(response, CompletionResponse):
-            telemetry.record_response(response)
-            if return_request:
-                response.request = request
+            record(response)
         return response
 
 
@@ -158,7 +150,6 @@ def complete_batch(
     output_schema: type[BaseModel] | None = None,
     generation_kwargs: dict[str, Any] | None = None,
     max_workers: int = 10,
-    return_request: bool = False,
 ) -> list[CompletionResponse | Exception]:
     """Generate responses for multiple conversations in parallel.
 
@@ -175,8 +166,6 @@ def complete_batch(
         generation_kwargs: Additional generation parameters forwarded to the
             provider (e.g. ``temperature``, ``max_tokens``).
         max_workers: Maximum number of concurrent threads.
-        return_request: If ``True``, attaches the generated ``CompletionRequest`` to each
-            returned ``CompletionResponse``.
 
     Returns:
         A list with one entry per conversation, in the same order as
@@ -189,7 +178,6 @@ def complete_batch(
         "output_schema": output_schema,
         "stream": False,
         "generation_kwargs": generation_kwargs,
-        "return_request": return_request,
     }
     params_list = [{**shared_kwargs, "prompt": prompt} for prompt in prompt_list]
 
@@ -199,3 +187,4 @@ def complete_batch(
         max_workers=max_workers,
         catch_exceptions=True,
     )
+    # We might want to call `CompletionBatch` here alreaady

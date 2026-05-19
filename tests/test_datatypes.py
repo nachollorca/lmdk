@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from lmdk.datatypes import (
     AssistantMessage,
+    CompletionBatch,
     CompletionRequest,
     CompletionResponse,
     Message,
@@ -173,91 +174,87 @@ class TestOutputSingleResponse:
 
 
 # ---------------------------------------------------------------------------
-# CompletionResponse.from_list — aggregation
+# CompletionBatch — aggregation
 # ---------------------------------------------------------------------------
 
 
-class TestFromList:
+class TestCompletionBatch:
     def test_aggregates_tokens(self):
-        responses = [
-            _resp(input_tokens=10, output_tokens=5, latency=0.1),
-            _resp(input_tokens=20, output_tokens=15, latency=0.2),
-        ]
-        agg = CompletionResponse.from_list(responses)
-        assert agg.input_tokens == 30
-        assert agg.output_tokens == 20
+        batch = CompletionBatch(
+            responses=[
+                _resp(input_tokens=10, output_tokens=5, latency=0.1),
+                _resp(input_tokens=20, output_tokens=15, latency=0.2),
+            ]
+        )
+        assert batch.input_tokens == 30
+        assert batch.output_tokens == 20
 
     def test_latency_is_max(self):
-        responses = [
-            _resp(latency=0.1),
-            _resp(latency=0.5),
-            _resp(latency=0.3),
-        ]
-        agg = CompletionResponse.from_list(responses)
-        assert agg.latency == 0.5
+        batch = CompletionBatch(
+            responses=[_resp(latency=0.1), _resp(latency=0.5), _resp(latency=0.3)]
+        )
+        assert batch.latency == 0.5
 
     def test_collects_parsed_objects(self):
         r1 = _resp(parsed=SingleField(summary="a"))
         r2 = _resp(parsed=SingleField(summary="b"))
-        agg = CompletionResponse.from_list([r1, r2])
+        batch = CompletionBatch(responses=[r1, r2])
 
-        assert isinstance(agg.parsed, list)
-        assert len(agg.parsed) == 2
-        assert agg.parsed[0].summary == "a"
-        assert agg.parsed[1].summary == "b"
+        assert len(batch.parsed) == 2
+        assert batch.parsed[0].summary == "a"
+        assert batch.parsed[1].summary == "b"
 
     def test_skips_none_parsed(self):
         r1 = _resp(parsed=SingleField(summary="a"))
         r2 = _resp(parsed=None)
-        agg = CompletionResponse.from_list([r1, r2])
+        batch = CompletionBatch(responses=[r1, r2])
+        assert len(batch.parsed) == 1
 
-        assert isinstance(agg.parsed, list)
-        assert len(agg.parsed) == 1
+    def test_empty_batch(self):
+        batch = CompletionBatch(responses=[])
+        assert batch.input_tokens == 0
+        assert batch.output_tokens == 0
+        assert batch.latency == 0.0
+        assert batch.parsed == []
 
-    def test_empty_list(self):
-        agg = CompletionResponse.from_list([])
-        assert agg.input_tokens == 0
-        assert agg.output_tokens == 0
-        assert agg.parsed == []
-
-    def test_content_is_empty(self):
-        agg = CompletionResponse.from_list([_resp(content="hello")])
-        assert agg.content == ""
+    def test_frozen(self):
+        batch = CompletionBatch(responses=[])
+        with pytest.raises(FrozenInstanceError):
+            batch.responses = [_resp()]
 
 
 # ---------------------------------------------------------------------------
-# CompletionResponse.output — aggregated responses
+# CompletionBatch.output
 # ---------------------------------------------------------------------------
 
 
-class TestOutputAggregated:
+class TestCompletionBatchOutput:
     def test_single_field_models_unwrap(self):
-        responses = [
-            _resp(parsed=SingleField(summary="a")),
-            _resp(parsed=SingleField(summary="b")),
-        ]
-        agg = CompletionResponse.from_list(responses)
-        assert agg.output == ["a", "b"]
+        batch = CompletionBatch(
+            responses=[
+                _resp(parsed=SingleField(summary="a")),
+                _resp(parsed=SingleField(summary="b")),
+            ]
+        )
+        assert batch.output == ["a", "b"]
 
     def test_multi_field_models_stay_as_models(self):
         m1 = MultiField(title="A", score=0.9)
         m2 = MultiField(title="B", score=0.8)
-        responses = [_resp(parsed=m1), _resp(parsed=m2)]
-        agg = CompletionResponse.from_list(responses)
-
-        assert agg.output == [m1, m2]
+        batch = CompletionBatch(responses=[_resp(parsed=m1), _resp(parsed=m2)])
+        assert batch.output == [m1, m2]
 
     def test_list_fields_flatten(self):
-        responses = [
-            _resp(parsed=ListField(items=["a", "b"])),
-            _resp(parsed=ListField(items=["c"])),
-        ]
-        agg = CompletionResponse.from_list(responses)
-        assert agg.output == ["a", "b", "c"]
+        batch = CompletionBatch(
+            responses=[
+                _resp(parsed=ListField(items=["a", "b"])),
+                _resp(parsed=ListField(items=["c"])),
+            ]
+        )
+        assert batch.output == ["a", "b", "c"]
 
-    def test_empty_aggregation_returns_empty_list(self):
-        agg = CompletionResponse.from_list([])
-        assert agg.output == []
+    def test_empty_batch_returns_empty_list(self):
+        assert CompletionBatch(responses=[]).output == []
 
     def test_mixed_list_and_scalar_does_not_flatten(self):
         """When not all outputs are lists, no flattening occurs."""
@@ -265,10 +262,11 @@ class TestOutputAggregated:
         class MixedField(BaseModel):
             value: str
 
-        responses = [
-            _resp(parsed=ListField(items=["a", "b"])),
-            _resp(parsed=MixedField(value="c")),
-        ]
-        agg = CompletionResponse.from_list(responses)
+        batch = CompletionBatch(
+            responses=[
+                _resp(parsed=ListField(items=["a", "b"])),
+                _resp(parsed=MixedField(value="c")),
+            ]
+        )
         # First unwraps to ["a", "b"], second unwraps to "c" — not all lists
-        assert agg.output == [["a", "b"], "c"]
+        assert batch.output == [["a", "b"], "c"]
