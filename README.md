@@ -11,6 +11,7 @@ What it offers:
 - Model fallbacks
 - Bring Your Own Key (for each provider)
 - Optional Telemetry following OpenTelemetry GenAI Semantic Conventions
+- In-process observation hook (`observe()`) to capture request/response pairs from wrapped code
 
 What it does **NOT** offer:
 - Tools / function calling / MCP
@@ -138,6 +139,25 @@ result = render_template(
     name="World"
 )
 ```
+</details>
+
+<details>
+<summary>Observing wrapped code</summary>
+
+```python
+from lmdk import observe
+
+with observe() as obs:
+    answer = my_function_that_calls_complete()
+
+for record in obs.records:
+    record.request    # CompletionRequest sent to the LM
+    record.response   # CompletionResponse returned
+```
+
+Useful for tests, evals, and debug tooling where the wrapped function only
+returns its own result but you also want to inspect the underlying LM calls.
+Streaming completions are not recorded.
 </details>
 
 ## Telemetry
