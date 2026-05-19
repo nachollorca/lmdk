@@ -8,15 +8,18 @@ from lmdk.datatypes import (
     Message,
     UserMessage,
 )
+from lmdk.observe import CompletionObserver, observe
 from lmdk.utils import render_template
 
 __all__ = [
     "AssistantMessage",
+    "CompletionObserver",
     "CompletionRequest",
     "CompletionResponse",
     "Message",
     "UserMessage",
     "complete",
     "complete_batch",
+    "observe",
     "render_template",
 ]

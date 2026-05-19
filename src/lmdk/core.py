@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from lmdk.datatypes import CompletionRequest, CompletionResponse, Message, UserMessage
 from lmdk.errors import AllModelsFailedError
+from lmdk.observe import _current_observer
 from lmdk.provider import load_provider
 from lmdk.telemetry import traced_completion
 from lmdk.utils import parallelize_function
@@ -146,8 +147,13 @@ def _complete_model(
         response = provider.complete(request=request, stream=False)
         if isinstance(response, CompletionResponse):
             telemetry.record_response(response)
-            if return_request:
+            observer = _current_observer()
+            if return_request or observer is not None:
+                # Observers usually need the rendered prompt / gen kwargs,
+                # so force-attach the request whenever one is active.
                 response.request = request
+            if observer is not None:
+                observer._record(response)
         return response
 
 
