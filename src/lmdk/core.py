@@ -37,6 +37,7 @@ def complete(
 ) -> CompletionResponse: ...  # stream=False (default) -> complete response
 
 
+# TODO: review the responsibilities of `complete` and `_complete_model`
 def complete(
     model: str | list[str],
     prompt: str | Sequence[Message],
@@ -186,3 +187,4 @@ def complete_batch(
         max_workers=max_workers,
         catch_exceptions=True,
     )
+    # We might want to call `CompletionBatch` here alreaady

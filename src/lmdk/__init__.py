@@ -3,6 +3,7 @@
 from lmdk.core import complete, complete_batch
 from lmdk.datatypes import (
     AssistantMessage,
+    CompletionBatch,
     CompletionRequest,
     CompletionResponse,
     Message,
@@ -13,6 +14,7 @@ from lmdk.utils import render_template
 
 __all__ = [
     "AssistantMessage",
+    "CompletionBatch",
     "CompletionObserver",
     "CompletionRecord",
     "CompletionRequest",
