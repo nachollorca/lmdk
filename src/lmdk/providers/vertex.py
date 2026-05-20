@@ -7,6 +7,10 @@ from lmdk.provider import Provider, RawResponse
 
 DEFAULT_LOCATION = "global"
 
+# Multi-region endpoints use a dedicated hostname that keeps processing within
+# the named jurisdiction (see Vertex AI "multi-region endpoints" docs).
+_MULTI_REGIONS = ("eu", "us")
+
 # Maps common OpenAI-style generation parameter names to Vertex AI camelCase equivalents.
 _GENERATION_KEY_MAP = {
     "max_tokens": "maxOutputTokens",
@@ -53,13 +57,22 @@ class VertexProvider(Provider):
 
     @classmethod
     def _build_url(cls, model: str, location: str, project_id: str, *, stream: bool) -> str:
-        """Construct the Vertex AI ``generateContent`` endpoint URL."""
+        """Construct the Vertex AI ``generateContent`` endpoint URL.
+
+        Three hostname shapes are supported:
+
+        * ``global`` → ``aiplatform.googleapis.com``
+        * multi-region (``eu`` / ``us``) → ``aiplatform.{loc}.rep.googleapis.com``
+        * regional (``us-central1``, ``europe-west4``, …) →
+          ``{loc}-aiplatform.googleapis.com``
+        """
         action = "streamGenerateContent" if stream else "generateContent"
-        host = (
-            f"{location}-aiplatform.googleapis.com"
-            if location != "global"
-            else "aiplatform.googleapis.com"
-        )
+        if location == "global":
+            host = "aiplatform.googleapis.com"
+        elif location in _MULTI_REGIONS:
+            host = f"aiplatform.{location}.rep.googleapis.com"
+        else:
+            host = f"{location}-aiplatform.googleapis.com"
         url = (
             f"https://{host}/v1/"
             f"projects/{project_id}/locations/{location}/"
