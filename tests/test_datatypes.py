@@ -181,7 +181,7 @@ class TestOutputSingleResponse:
 class TestCompletionBatch:
     def test_aggregates_tokens(self):
         batch = CompletionBatch(
-            responses=[
+            results=[
                 _resp(input_tokens=10, output_tokens=5, latency=0.1),
                 _resp(input_tokens=20, output_tokens=15, latency=0.2),
             ]
@@ -191,14 +191,14 @@ class TestCompletionBatch:
 
     def test_latency_is_max(self):
         batch = CompletionBatch(
-            responses=[_resp(latency=0.1), _resp(latency=0.5), _resp(latency=0.3)]
+            results=[_resp(latency=0.1), _resp(latency=0.5), _resp(latency=0.3)]
         )
         assert batch.latency == 0.5
 
     def test_collects_parsed_objects(self):
         r1 = _resp(parsed=SingleField(summary="a"))
         r2 = _resp(parsed=SingleField(summary="b"))
-        batch = CompletionBatch(responses=[r1, r2])
+        batch = CompletionBatch(results=[r1, r2])
 
         assert len(batch.parsed) == 2
         assert batch.parsed[0].summary == "a"
@@ -207,20 +207,45 @@ class TestCompletionBatch:
     def test_skips_none_parsed(self):
         r1 = _resp(parsed=SingleField(summary="a"))
         r2 = _resp(parsed=None)
-        batch = CompletionBatch(responses=[r1, r2])
+        batch = CompletionBatch(results=[r1, r2])
         assert len(batch.parsed) == 1
 
     def test_empty_batch(self):
-        batch = CompletionBatch(responses=[])
+        batch = CompletionBatch(results=[])
         assert batch.input_tokens == 0
         assert batch.output_tokens == 0
         assert batch.latency == 0.0
         assert batch.parsed == []
 
     def test_frozen(self):
-        batch = CompletionBatch(responses=[])
+        batch = CompletionBatch(results=[])
         with pytest.raises(FrozenInstanceError):
-            batch.responses = [_resp()]
+            batch.results = [_resp()]
+
+    def test_exceptions_are_separated_from_responses(self):
+        r1 = _resp(input_tokens=5, output_tokens=3, latency=0.1)
+        err = RuntimeError("boom")
+        r2 = _resp(input_tokens=7, output_tokens=4, latency=0.2)
+        batch = CompletionBatch(results=[r1, err, r2])
+
+        # responses / errors split correctly, preserving order
+        assert batch.responses == [r1, r2]
+        assert batch.errors == [err]
+
+        # aggregates ignore the exception
+        assert batch.input_tokens == 12
+        assert batch.output_tokens == 7
+        assert batch.latency == 0.2
+
+    def test_iterable_and_indexable(self):
+        r1 = _resp()
+        err = RuntimeError("boom")
+        batch = CompletionBatch(results=[r1, err])
+
+        assert len(batch) == 2
+        assert batch[0] is r1
+        assert batch[1] is err
+        assert list(batch) == [r1, err]
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +256,7 @@ class TestCompletionBatch:
 class TestCompletionBatchOutput:
     def test_single_field_models_unwrap(self):
         batch = CompletionBatch(
-            responses=[
+            results=[
                 _resp(parsed=SingleField(summary="a")),
                 _resp(parsed=SingleField(summary="b")),
             ]
@@ -241,12 +266,12 @@ class TestCompletionBatchOutput:
     def test_multi_field_models_stay_as_models(self):
         m1 = MultiField(title="A", score=0.9)
         m2 = MultiField(title="B", score=0.8)
-        batch = CompletionBatch(responses=[_resp(parsed=m1), _resp(parsed=m2)])
+        batch = CompletionBatch(results=[_resp(parsed=m1), _resp(parsed=m2)])
         assert batch.output == [m1, m2]
 
     def test_list_fields_flatten(self):
         batch = CompletionBatch(
-            responses=[
+            results=[
                 _resp(parsed=ListField(items=["a", "b"])),
                 _resp(parsed=ListField(items=["c"])),
             ]
@@ -254,7 +279,7 @@ class TestCompletionBatchOutput:
         assert batch.output == ["a", "b", "c"]
 
     def test_empty_batch_returns_empty_list(self):
-        assert CompletionBatch(responses=[]).output == []
+        assert CompletionBatch(results=[]).output == []
 
     def test_mixed_list_and_scalar_does_not_flatten(self):
         """When not all outputs are lists, no flattening occurs."""
@@ -263,7 +288,7 @@ class TestCompletionBatchOutput:
             value: str
 
         batch = CompletionBatch(
-            responses=[
+            results=[
                 _resp(parsed=ListField(items=["a", "b"])),
                 _resp(parsed=MixedField(value="c")),
             ]

@@ -127,11 +127,11 @@ class TestObserverWithBatch:
         test should be flipped to assert propagation.
         """
         with observe() as obs:
-            results = complete_batch(
+            batch = complete_batch(
                 model="fake:model",
                 prompt_list=["a", "b", "c"],
                 max_workers=2,
             )
 
-        assert len(results) == 3
+        assert len(batch) == 3
         assert obs.records == []

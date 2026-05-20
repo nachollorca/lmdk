@@ -115,8 +115,18 @@ response = complete(model=model, prompt="How do I make cheescake?", output_schem
 ```python
 from lmdk import complete_batch
 
-results = complete_batch(model=model, prompt_list=["Greet in english", "Saluda en espanyol."])
-# results will be al list of CompletionResult
+batch = complete_batch(model=model, prompt_list=["Greet in english", "Saluda en espanyol."])
+# `batch` is a CompletionBatch. Iterate it to handle each outcome:
+for result in batch:
+    if isinstance(result, Exception):
+        ...  # this prompt failed
+    else:
+        ...  # CompletionResponse
+
+# Aggregates over successful responses:
+batch.input_tokens, batch.output_tokens, batch.latency
+batch.responses  # successes only
+batch.errors     # exceptions only
 ```
 </details>
 

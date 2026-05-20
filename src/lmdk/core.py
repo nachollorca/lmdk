@@ -6,7 +6,13 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from lmdk._listeners import completion_lifecycle
-from lmdk.datatypes import CompletionRequest, CompletionResponse, Message, UserMessage
+from lmdk.datatypes import (
+    CompletionBatch,
+    CompletionRequest,
+    CompletionResponse,
+    Message,
+    UserMessage,
+)
 from lmdk.errors import AllModelsFailedError
 from lmdk.provider import load_provider
 from lmdk.utils import parallelize_function
@@ -150,7 +156,7 @@ def complete_batch(
     output_schema: type[BaseModel] | None = None,
     generation_kwargs: dict[str, Any] | None = None,
     max_workers: int = 10,
-) -> list[CompletionResponse | Exception]:
+) -> CompletionBatch:
     """Generate responses for multiple conversations in parallel.
 
     Each conversation in *prompt_list* is dispatched to :func:`complete`
@@ -168,9 +174,13 @@ def complete_batch(
         max_workers: Maximum number of concurrent threads.
 
     Returns:
-        A list with one entry per conversation, in the same order as
-        *prompt_list*.  Each entry is either a ``CompletionResponse`` on
-        success or the ``Exception`` that was raised on failure.
+        A :class:`CompletionBatch` whose ``results`` list has one entry per
+        conversation, in the same order as *prompt_list*. Each entry is either
+        a ``CompletionResponse`` on success or the ``Exception`` raised on
+        failure. The batch is iterable and indexable for direct access to
+        these outcomes, and exposes aggregate properties (``input_tokens``,
+        ``output_tokens``, ``latency``, ``parsed``, ``output``) computed over
+        the successful responses.
     """
     shared_kwargs: dict[str, Any] = {
         "model": model,
@@ -181,10 +191,10 @@ def complete_batch(
     }
     params_list = [{**shared_kwargs, "prompt": prompt} for prompt in prompt_list]
 
-    return parallelize_function(
+    results = parallelize_function(
         function=complete,
         params_list=params_list,
         max_workers=max_workers,
         catch_exceptions=True,
     )
-    # We might want to call `CompletionBatch` here alreaady
+    return CompletionBatch(results=results)

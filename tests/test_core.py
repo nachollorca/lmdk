@@ -159,15 +159,16 @@ class TestCompleteBatch:
 
         patch_load_provider.response_fn = echo
 
-        results = complete_batch(
+        batch = complete_batch(
             model="fake:model",
             prompt_list=["first", "second", "third"],
         )
 
-        assert len(results) == 3
-        assert results[0].content == "first"
-        assert results[1].content == "second"
-        assert results[2].content == "third"
+        assert len(batch) == 3
+        assert batch[0].content == "first"
+        assert batch[1].content == "second"
+        assert batch[2].content == "third"
+        assert len(batch.errors) == 0
 
     def test_captures_per_item_exceptions(self, patch_load_provider):
         def fail_on_second(request, api_key):
@@ -177,11 +178,13 @@ class TestCompleteBatch:
 
         patch_load_provider.response_fn = fail_on_second
 
-        results = complete_batch(
+        batch = complete_batch(
             model="fake:model",
             prompt_list=["good", "fail", "good"],
         )
 
-        assert isinstance(results[0], CompletionResponse)
-        assert isinstance(results[1], RuntimeError)
-        assert isinstance(results[2], CompletionResponse)
+        assert isinstance(batch[0], CompletionResponse)
+        assert isinstance(batch[1], RuntimeError)
+        assert isinstance(batch[2], CompletionResponse)
+        assert len(batch.responses) == 2
+        assert len(batch.errors) == 1

@@ -218,14 +218,15 @@ def main(model: str) -> None:
 
     # ── Section 10: Batch responses ───────────────────────────────────────
     # complete_batch sends multiple prompts in parallel using a thread
-    # pool.  Each result is either a CompletionResponse or an Exception.
+    # pool and returns a CompletionBatch. Iterating yields each outcome,
+    # which is either a CompletionResponse or an Exception.
     section(10, "Batch responses")
     try:
-        results = complete_batch(
+        batch = complete_batch(
             model=model,
             prompt_list=["Say 'hello' and nothing else.", "Say 'hola' and nothing else."],
         )
-        for i, result in enumerate(results):
+        for i, result in enumerate(batch):
             if isinstance(result, Exception):
                 print(f"  [{i}] [FAILED] {type(result).__name__}: {result}")
             else:
@@ -234,6 +235,10 @@ def main(model: str) -> None:
                     f"tokens={result.input_tokens}+{result.output_tokens}  "
                     f"latency={result.latency:.3f}s"
                 )
+        print(
+            f"  batch totals: input={batch.input_tokens}  output={batch.output_tokens}  "
+            f"latency={batch.latency:.3f}s  errors={len(batch.errors)}"
+        )
     except Exception as e:
         print(f"[FAILED] Batch responses -> {type(e).__name__}: {e}")
 
@@ -242,7 +247,7 @@ def main(model: str) -> None:
     # will have .parsed and .output populated.
     section(11, "Batch with structured output")
     try:
-        results = complete_batch(
+        batch = complete_batch(
             model=model,
             prompt_list=[
                 "Tell me about Tokyo.",
@@ -250,7 +255,7 @@ def main(model: str) -> None:
             ],
             output_schema=City,
         )
-        for i, result in enumerate(results):
+        for i, result in enumerate(batch):
             if isinstance(result, Exception):
                 print(f"  [{i}] [FAILED] {type(result).__name__}: {result}")
             else:
