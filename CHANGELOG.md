@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.1.0 (2026-05-20)
+
+### Features
+
+- **vertex**: Add multi-region support
+  ([`e815582`](https://github.com/nachollorca/lmdk/commit/e8155828c9ecf2f5990e486744db4d157fcd0e42))
+
+
 ## v2.0.0 (2026-05-19)
 
 ### Features
