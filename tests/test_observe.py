@@ -120,11 +120,10 @@ class TestObserverScope:
 
 
 class TestObserverWithBatch:
-    def test_batch_calls_do_not_propagate_to_observer(self, patch_load_provider):
-        """Documented behavior: contextvars don't follow threads spawned by
-        ``complete_batch``, so calls inside the pool are not recorded.
-        If this ever changes (e.g. via ``contextvars.copy_context``), this
-        test should be flipped to assert propagation.
+    def test_batch_calls_propagate_to_observer(self, patch_load_provider):
+        """``parallelize_function`` snapshots the caller's context per task
+        (via :func:`contextvars.copy_context`), so completions made on the
+        thread pool inside ``complete_batch`` land on the active observer.
         """
         with observe() as obs:
             batch = complete_batch(
@@ -134,4 +133,25 @@ class TestObserverWithBatch:
             )
 
         assert len(batch) == 3
-        assert obs.records == []
+        assert len(obs.records) == 3
+        # Order of completion is non-deterministic across threads, but the
+        # set of recorded prompts must match the inputs exactly.
+        assert {r.request.prompt[0].content for r in obs.records} == {"a", "b", "c"}
+
+    def test_batch_observer_isolated_from_outer_scope(self, patch_load_provider):
+        """Each worker task runs inside its own context snapshot, so context
+        mutations performed by other tasks (or by sibling code) must not
+        leak between them. Here we verify that completions made *after* the
+        batch do not double-record on the inner observer.
+        """
+        with observe() as outer:
+            complete_batch(
+                model="fake:model",
+                prompt_list=["x", "y"],
+                max_workers=2,
+            )
+            complete(model="fake:model", prompt="z")
+
+        # 2 from the batch + 1 from the direct call.
+        assert len(outer.records) == 3
+        assert {r.request.prompt[0].content for r in outer.records} == {"x", "y", "z"}
