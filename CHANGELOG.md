@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.1.1 (2026-05-21)
+
+### Bug Fixes
+
+- **batch**: Allow threads to carry context so we can observe the requests / responses
+  ([`0893b09`](https://github.com/nachollorca/lmdk/commit/0893b09c2417961c9d38c8079b8ffea9f7f19777))
+
+
 ## v2.1.0 (2026-05-20)
 
 ### Features
