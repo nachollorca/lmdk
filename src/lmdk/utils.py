@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 from functools import wraps
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,13 @@ def parallelize_function(
     Returns:
         A list of results in the same order as *params_list*.
 
+    Notes:
+        Each task runs inside a snapshot of the submitting thread's
+        :mod:`contextvars` context (via :func:`contextvars.copy_context`), so
+        context-scoped state like the active ``lmdk.observe`` recorder and
+        OpenTelemetry baggage is visible to the worker threads. Mutations to
+        ``ContextVar`` values inside a task stay local to that task.
+
     Examples:
         >>> def add(a, b):
         ...     return a + b
@@ -64,7 +72,8 @@ def parallelize_function(
     results: list[Any] = [None] * len(params_list)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures_to_indices = {
-            executor.submit(function, **params): index for index, params in enumerate(params_list)
+            executor.submit(copy_context().run, function, **params): index
+            for index, params in enumerate(params_list)
         }
         for future in as_completed(futures_to_indices):
             index = futures_to_indices[future]
