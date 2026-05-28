@@ -42,15 +42,21 @@ class LlamacppProvider(Provider):
     @classmethod
     def _build_payload(cls, request: CompletionRequest, stream: bool = False) -> dict:
         """Build the full request payload for the llamacpp API."""
-        if request.output_schema:
-            raise NotImplementedError("Structured output is not implemented for LlamacppProvider.")
-
         payload: dict = {
             "model": request.model_id,
             "messages": cls._build_prompt_payload(request),
             "stream": stream,
             **(request.generation_kwargs or {}),
         }
+
+        if request.output_schema and not stream:
+            payload["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": request.output_schema.__name__,
+                    "schema": request.output_schema.model_json_schema(),
+                },
+            }
         return payload
 
     @classmethod
