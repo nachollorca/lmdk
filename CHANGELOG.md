@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.2.0 (2026-05-28)
+
+### Features
+
+- **llamacpp**: Implement structured output
+  ([`139f8c2`](https://github.com/nachollorca/lmdk/commit/139f8c2bd451e73f535b70af58fbf0b84899eb96))
+
+
 ## v2.1.1 (2026-05-21)
 
 ### Bug Fixes
