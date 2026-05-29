@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.3.0 (2026-05-29)
+
+### Features
+
+- **provider**: Made a generic local LM provider for OpenAI completions endpoint
+  ([`8bf17fa`](https://github.com/nachollorca/lmdk/commit/8bf17fa00c6204d0d342e28885e89b1b5b374f0a))
+
+
 ## v2.2.0 (2026-05-28)
 
 ### Features
