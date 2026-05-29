@@ -16,9 +16,11 @@ from lmdk.errors import STATUS_TO_ERROR, AuthenticationError, ProviderError
 class Provider(ABC):
     """Interface that all LLM providers must implement.
 
-    Subclasses must define class attribute ``required_env``:
+    Subclasses may define class attribute ``required_env``:
     A string or tuple of environment variable names the provider needs. For example:
-    ``"MISTRAL_API_KEY"`` or ``("VERTEX_API_KEY", "GCP_PROJECT_ID")``).
+    ``"MISTRAL_API_KEY"`` or ``("VERTEX_API_KEY", "GCP_PROJECT_ID")``). Providers
+    that need no credentials (e.g. a local OpenAI-compatible server) can leave it
+    as the default empty tuple.
 
     The main method in the base class (``complete``) handles:
         - credential resolution (``_resolve_credentials``)
@@ -37,7 +39,8 @@ class Provider(ABC):
         - ``_stream_response`` to build the HTTP body and parse the streamed tokens
     """
 
-    required_env: str | tuple[str, ...]  # one or multiple required environmental variables
+    # zero, one, or multiple required environment variables (empty = none required)
+    required_env: str | tuple[str, ...] = ()
 
     @classmethod
     def complete(
