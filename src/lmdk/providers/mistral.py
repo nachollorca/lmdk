@@ -43,6 +43,7 @@ class MistralProvider(Provider):
                 "json_schema": {
                     "name": request.output_schema.__name__,
                     "schema": request.output_schema.model_json_schema(),
+                    "strict": True,
                 },
             }
         return payload
