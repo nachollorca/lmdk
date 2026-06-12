@@ -131,3 +131,24 @@ def test_render_template_cleaning():
     template = "Value: {{ val }}"
     result = render_template(template=template, val="{{ dirty }}")
     assert result == "Value: dirty"
+
+
+def test_render_template_preserves_curly_brackets_when_disabled():
+    template = "History:\n{{ HISTORY }}"
+    inner = "<template>\nReview: {{ REVIEW }}\n</template>"
+    result = render_template(
+        template=template,
+        HISTORY=inner,
+        strip_curly_brackets=False,
+    )
+    assert result == "History:\n<template>\nReview: {{ REVIEW }}\n</template>"
+
+
+def test_render_template_still_strips_whitespace_when_curly_brackets_preserved():
+    template = "Value: {{ val }}"
+    result = render_template(
+        template=template,
+        val="  {{ nested }}  ",
+        strip_curly_brackets=False,
+    )
+    assert result == "Value: {{ nested }}"
