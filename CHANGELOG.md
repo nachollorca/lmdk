@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v2.4.0 (2026-06-12)
+
+### Documentation
+
+- **readme**: Add a reference to chatlas
+  ([`2b3162a`](https://github.com/nachollorca/lmdk/commit/2b3162a21a99641f4d839ad885c70fbf7e5ea453))
+
+### Features
+
+- **render_template**: Make the stripping of curly braces optional
+  ([`6bb0c0e`](https://github.com/nachollorca/lmdk/commit/6bb0c0e7766bc6c96c3c0d9d7b43231802d27d66))
+
+
 ## v2.3.0 (2026-05-29)
 
 ### Features
