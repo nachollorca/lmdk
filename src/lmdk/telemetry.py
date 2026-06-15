@@ -191,6 +191,9 @@ def _span_attributes(
         if value is not None:
             attributes[attribute_name] = value
 
+    if request.thinking_effort != "none":
+        attributes["gen_ai.request.reasoning_effort"] = request.thinking_effort
+
     return attributes
 
 

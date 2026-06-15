@@ -10,6 +10,16 @@ ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MAX_TOKENS = 4096
 
+# Token budgets for each ``thinking_effort`` level. Anthropic requires
+# ``budget_tokens`` >= 1024 and < ``max_tokens`` when thinking is enabled.
+_THINKING_BUDGETS = {
+    "low": 1024,
+    "medium": 8192,
+    "high": 16384,
+}
+# Sampling controls Anthropic rejects when ``thinking`` is enabled.
+_THINKING_INCOMPATIBLE_KWARGS = ("temperature", "top_p", "top_k")
+
 
 def _prepare_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """Prepare a Pydantic JSON schema for the Anthropic API.
@@ -75,12 +85,26 @@ class AnthropicProvider(Provider):
         generation_kwargs = dict(request.generation_kwargs or {})
         max_tokens = generation_kwargs.pop("max_tokens", DEFAULT_MAX_TOKENS)
 
+        thinking_block: dict | None = None
+        if request.thinking_effort != "none" and "thinking" not in generation_kwargs:
+            # Anthropic rejects custom temperature/top_p/top_k when thinking
+            # is enabled. Drop them so the request goes through cleanly.
+            for key in _THINKING_INCOMPATIBLE_KWARGS:
+                generation_kwargs.pop(key, None)
+            budget_tokens = _THINKING_BUDGETS[request.thinking_effort]
+            if max_tokens <= budget_tokens:
+                max_tokens = budget_tokens + DEFAULT_MAX_TOKENS
+            thinking_block = {"type": "enabled", "budget_tokens": budget_tokens}
+
         payload: dict = {
             "model": request.model_id,
             "messages": cls._build_messages(request),
             "max_tokens": max_tokens,
             **generation_kwargs,
         }
+
+        if thinking_block is not None:
+            payload["thinking"] = thinking_block
 
         if request.system_instruction:
             payload["system"] = request.system_instruction

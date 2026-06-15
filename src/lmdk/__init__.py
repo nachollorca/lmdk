@@ -7,6 +7,7 @@ from lmdk.datatypes import (
     CompletionRequest,
     CompletionResponse,
     Message,
+    ThinkingEffort,
     UserMessage,
 )
 from lmdk.observe import CompletionObserver, CompletionRecord, observe
@@ -20,6 +21,7 @@ __all__ = [
     "CompletionRequest",
     "CompletionResponse",
     "Message",
+    "ThinkingEffort",
     "UserMessage",
     "complete",
     "complete_batch",

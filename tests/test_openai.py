@@ -179,6 +179,29 @@ class TestBuildPayload:
         payload = OpenaiProvider._build_payload(request, stream=True)
         assert "text" not in payload
 
+    def test_no_reasoning_block_when_thinking_effort_none(self):
+        payload = OpenaiProvider._build_payload(_make_request())
+        assert "reasoning" not in payload
+
+    def test_thinking_effort_maps_to_reasoning_effort(self):
+        request = _make_request(thinking_effort="medium")
+        payload = OpenaiProvider._build_payload(request)
+        assert payload["reasoning"] == {"effort": "medium"}
+
+    def test_thinking_effort_with_structured_output(self):
+        request = _make_request(thinking_effort="high", output_schema=Person)
+        payload = OpenaiProvider._build_payload(request)
+        assert payload["reasoning"] == {"effort": "high"}
+        assert payload["text"]["format"]["type"] == "json_schema"
+
+    def test_explicit_reasoning_in_generation_kwargs_overrides_thinking_effort(self):
+        request = _make_request(
+            thinking_effort="high",
+            generation_kwargs={"reasoning": {"effort": "low"}},
+        )
+        payload = OpenaiProvider._build_payload(request)
+        assert payload["reasoning"] == {"effort": "low"}
+
 
 # ---------------------------------------------------------------------------
 # _prepare_schema

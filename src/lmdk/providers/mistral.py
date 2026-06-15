@@ -30,11 +30,17 @@ class MistralProvider(Provider):
     @classmethod
     def _build_payload(cls, request: CompletionRequest, stream: bool = False) -> dict:
         """Build the full request payload for the Mistral API."""
+        generation_kwargs = dict(request.generation_kwargs or {})
+        # Mistral's chat API only accepts "high" for reasoning_effort, so any
+        # non-"none" lmdk level collapses to "high".
+        if request.thinking_effort != "none":
+            generation_kwargs.setdefault("reasoning_effort", "high")
+
         payload: dict = {
             "model": request.model_id,
             "messages": cls._build_prompt_payload(request),
             "stream": stream,
-            **(request.generation_kwargs or {}),
+            **generation_kwargs,
         }
 
         if request.output_schema and not stream:

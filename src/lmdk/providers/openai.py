@@ -126,6 +126,9 @@ class OpenaiProvider(Provider):
         if request.system_instruction:
             payload["instructions"] = request.system_instruction
 
+        if request.thinking_effort != "none":
+            payload.setdefault("reasoning", {"effort": request.thinking_effort})
+
         if request.output_schema and not stream:
             payload["text"] = {
                 "format": {

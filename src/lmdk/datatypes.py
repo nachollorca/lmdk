@@ -3,9 +3,11 @@
 from collections.abc import Iterator, Sequence
 from dataclasses import asdict, dataclass, field
 from itertools import chain
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel
+
+ThinkingEffort = Literal["none", "low", "medium", "high"]
 
 
 @dataclass(frozen=True)
@@ -47,6 +49,7 @@ class CompletionRequest:
     system_instruction: str | None
     output_schema: type[BaseModel] | None
     generation_kwargs: dict
+    thinking_effort: ThinkingEffort = "none"
 
 
 @dataclass(frozen=True)

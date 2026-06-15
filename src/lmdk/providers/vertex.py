@@ -104,12 +104,20 @@ class VertexProvider(Provider):
         Translates common OpenAI-style parameter names (``max_tokens``,
         ``top_p``, …) to their Vertex AI camelCase equivalents and merges
         structured-output directives when an ``output_schema`` is present.
+
+        ``thinking_effort`` maps to ``thinkingConfig.thinkingLevel`` (Gemini 3).
+        ``"none"`` omits the config since Gemini 3 cannot disable thinking. An
+        explicit ``thinkingConfig`` in ``generation_kwargs`` overrides the
+        mapped value.
         """
         config: dict = {}
 
         for key, value in (request.generation_kwargs or {}).items():
             mapped_key = _GENERATION_KEY_MAP.get(key, key)
             config[mapped_key] = value
+
+        if request.thinking_effort != "none":
+            config.setdefault("thinkingConfig", {"thinkingLevel": request.thinking_effort})
 
         if request.output_schema:
             config["responseMimeType"] = "application/json"
@@ -177,22 +185,10 @@ class VertexProvider(Provider):
 
     @classmethod
     def _build_payload(cls, request: CompletionRequest) -> dict:
-        """Assemble the full request payload for the Vertex API.
-
-        Thinking is disabled by default (``thinkingBudget: 0``) so that
-        all output tokens go to visible content, matching non-thinking
-        providers.  Users can opt in to thinking by passing
-        ``generation_kwargs={"thinkingConfig": {"thinkingBudget": N}}``.
-        """
-        generation_config = cls._build_generation_config(request)
-
-        # Allow users to override thinkingConfig via generation_kwargs;
-        # default to disabled so maxOutputTokens behaves predictably.
-        generation_config.setdefault("thinkingConfig", {"thinkingBudget": 0})
-
+        """Assemble the full request payload for the Vertex API."""
         payload: dict = {
             "contents": cls._build_contents(request),
-            "generationConfig": generation_config,
+            "generationConfig": cls._build_generation_config(request),
         }
 
         if request.system_instruction:

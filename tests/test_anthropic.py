@@ -189,6 +189,67 @@ class TestBuildPayload:
         payload = AnthropicProvider._build_payload(request)
         assert "output_config" not in payload
 
+    def test_no_thinking_block_when_effort_none(self):
+        payload = AnthropicProvider._build_payload(_make_request())
+        assert "thinking" not in payload
+
+    def test_thinking_effort_low_maps_to_budget(self):
+        request = _make_request(thinking_effort="low")
+        payload = AnthropicProvider._build_payload(request)
+        assert payload["thinking"] == {"type": "enabled", "budget_tokens": 1024}
+
+    def test_thinking_effort_medium_maps_to_budget(self):
+        request = _make_request(thinking_effort="medium")
+        payload = AnthropicProvider._build_payload(request)
+        assert payload["thinking"] == {"type": "enabled", "budget_tokens": 8192}
+
+    def test_thinking_effort_high_maps_to_budget(self):
+        request = _make_request(thinking_effort="high")
+        payload = AnthropicProvider._build_payload(request)
+        assert payload["thinking"] == {"type": "enabled", "budget_tokens": 16384}
+
+    def test_thinking_effort_drops_incompatible_sampling_kwargs(self):
+        request = _make_request(
+            thinking_effort="medium",
+            generation_kwargs={"temperature": 0, "top_p": 0.9, "top_k": 50},
+        )
+        payload = AnthropicProvider._build_payload(request)
+        assert "temperature" not in payload
+        assert "top_p" not in payload
+        assert "top_k" not in payload
+
+    def test_thinking_effort_grows_max_tokens_when_too_small(self):
+        # max_tokens must be greater than budget_tokens when thinking is on.
+        request = _make_request(
+            thinking_effort="high",
+            generation_kwargs={"max_tokens": 1000},
+        )
+        payload = AnthropicProvider._build_payload(request)
+        assert payload["max_tokens"] > 16384
+
+    def test_thinking_effort_keeps_user_max_tokens_when_large_enough(self):
+        request = _make_request(
+            thinking_effort="low",
+            generation_kwargs={"max_tokens": 4096},
+        )
+        payload = AnthropicProvider._build_payload(request)
+        assert payload["max_tokens"] == 4096
+
+    def test_thinking_effort_with_structured_output(self):
+        request = _make_request(thinking_effort="low", output_schema=Person)
+        payload = AnthropicProvider._build_payload(request)
+        assert payload["thinking"] == {"type": "enabled", "budget_tokens": 1024}
+        assert payload["output_config"]["format"]["type"] == "json_schema"
+
+    def test_explicit_thinking_in_generation_kwargs_overrides_thinking_effort(self):
+        custom = {"type": "enabled", "budget_tokens": 256}
+        request = _make_request(
+            thinking_effort="high",
+            generation_kwargs={"thinking": custom, "max_tokens": 4096},
+        )
+        payload = AnthropicProvider._build_payload(request)
+        assert payload["thinking"] == custom
+
 
 # ---------------------------------------------------------------------------
 # _prepare_schema

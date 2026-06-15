@@ -79,6 +79,28 @@ class TestCompletionRequest:
         assert len(req.prompt) == 3
         assert req.system_instruction == "Be helpful."
         assert req.generation_kwargs == {"temperature": 0.5}
+        assert req.thinking_effort == "none"
+
+    def test_thinking_effort_defaults_to_none(self, sample_messages):
+        req = CompletionRequest(
+            model_id="m",
+            prompt=sample_messages,
+            system_instruction=None,
+            output_schema=None,
+            generation_kwargs={},
+        )
+        assert req.thinking_effort == "none"
+
+    def test_thinking_effort_can_be_set(self, sample_messages):
+        req = CompletionRequest(
+            model_id="m",
+            prompt=sample_messages,
+            system_instruction=None,
+            output_schema=None,
+            generation_kwargs={},
+            thinking_effort="high",
+        )
+        assert req.thinking_effort == "high"
 
     def test_frozen(self, sample_messages):
         req = CompletionRequest(

@@ -94,6 +94,37 @@ class TestBuildPromptPayload:
 
 
 # ---------------------------------------------------------------------------
+# _build_payload — thinking_effort
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPayloadThinking:
+    def test_no_reasoning_effort_when_none(self):
+        payload = MistralProvider._build_payload(_make_request())
+        assert "reasoning_effort" not in payload
+
+    def test_low_collapses_to_high(self):
+        payload = MistralProvider._build_payload(_make_request(thinking_effort="low"))
+        assert payload["reasoning_effort"] == "high"
+
+    def test_medium_collapses_to_high(self):
+        payload = MistralProvider._build_payload(_make_request(thinking_effort="medium"))
+        assert payload["reasoning_effort"] == "high"
+
+    def test_high_maps_to_high(self):
+        payload = MistralProvider._build_payload(_make_request(thinking_effort="high"))
+        assert payload["reasoning_effort"] == "high"
+
+    def test_explicit_reasoning_effort_overrides_thinking_effort(self):
+        request = _make_request(
+            thinking_effort="high",
+            generation_kwargs={"reasoning_effort": "low"},
+        )
+        payload = MistralProvider._build_payload(request)
+        assert payload["reasoning_effort"] == "low"
+
+
+# ---------------------------------------------------------------------------
 # _send_request — basic text completion
 # ---------------------------------------------------------------------------
 

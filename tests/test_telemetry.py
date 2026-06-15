@@ -126,6 +126,8 @@ def test_metadata_mode_records_span_attributes_and_metrics(
     assert "gen_ai.input.messages" not in span.attributes
     assert "gen_ai.system_instructions" not in span.attributes
     assert "gen_ai.output.messages" not in span.attributes
+    # thinking_effort defaults to "none" -> attribute is omitted
+    assert "gen_ai.request.reasoning_effort" not in span.attributes
 
     duration_points = _metric_points(metric_reader, "gen_ai.client.operation.duration")
     assert len(duration_points) == 1
@@ -141,6 +143,16 @@ def test_metadata_mode_records_span_attributes_and_metrics(
         "input": 10,
         "output": 5,
     }
+
+
+def test_metadata_mode_records_thinking_effort(monkeypatch, patch_load_provider, otel_setup):
+    span_exporter, _ = otel_setup
+    monkeypatch.setenv("LMDK_TELEMETRY", "metadata")
+
+    complete(model="fake:model", prompt="hi", thinking_effort="medium")
+
+    span = span_exporter.get_finished_spans()[0]
+    assert span.attributes["gen_ai.request.reasoning_effort"] == "medium"
 
 
 def test_content_mode_records_prompt_system_instruction_and_response(monkeypatch, otel_setup):

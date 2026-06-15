@@ -110,6 +110,31 @@ response = complete(model=model, prompt="How do I make cheescake?", output_schem
 </details>
 
 <details>
+<summary>Reasoning / thinking</summary>
+
+```python
+# "none" (default) | "low" | "medium" | "high"
+response = complete(model=model, prompt="Solve this carefully...", thinking_effort="high")
+
+# Works alongside structured output where the provider supports both:
+response = complete(
+    model=model,
+    prompt="Plan a 3-day trip to Lisbon.",
+    output_schema=Trip,
+    thinking_effort="medium",
+)
+```
+
+`thinking_effort` is mapped per provider:
+- OpenAI: `reasoning.effort`
+- Vertex (Gemini 3): `thinkingConfig.thinkingLevel` (`"low"` / `"medium"` / `"high"`). `"none"` is a no-op since Gemini 3 can't disable thinking.
+- Anthropic: `thinking={type: "enabled", budget_tokens: ...}` (low=1024, medium=8192, high=16384). Sampling kwargs (`temperature`, `top_p`, `top_k`) are dropped to satisfy the API constraint.
+- Mistral: `reasoning_effort` (the API only accepts `"high"`, so any non-`"none"` level maps to `"high"`)
+
+`generation_kwargs` still wins as an escape hatch when you need exact provider-native values (e.g. `generation_kwargs={"thinkingConfig": {"thinkingBudget": 256}}` on Vertex).
+</details>
+
+<details>
 <summary>Parallel calls</summary>
 
 ```python
