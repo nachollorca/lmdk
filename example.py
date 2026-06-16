@@ -55,7 +55,7 @@ class Person(BaseModel):
 
 class Ingredient(BaseModel):
     name: str
-    quantity: int
+    quantity: float
     unit: str = ""
 
 
@@ -262,6 +262,57 @@ def main(model: str) -> None:
                 print(f"  [{i}] [OK] parsed={result.parsed!r}  output={result.output!r}")
     except Exception as e:
         print(f"[FAILED] Batch with structured output -> {type(e).__name__}: {e}")
+
+    # ── Section 12: Thinking / reasoning effort ───────────────────────────
+    # thinking_effort guides how much the model reasons before answering.
+    # Accepts "none" (default), "low", "medium", "high". Mapping is
+    # provider-specific (see README). Not all providers/models support it.
+    section(12, "Thinking / reasoning effort")
+    for effort in ("none", "low", "medium", "high"):
+        try:
+            response = complete(
+                model=model,
+                prompt="A bat and a ball cost $1.10. The bat costs $1 more than the ball. "
+                "How much is the ball?",
+                thinking_effort=effort,
+            )
+            print_response(f"thinking_effort={effort!r}", response)
+        except Exception as e:
+            print(f"[FAILED] thinking_effort={effort!r} -> {type(e).__name__}: {e}")
+
+    # ── Section 13: Thinking + structured output ──────────────────────────
+    # Where the provider supports both, reasoning effort works alongside an
+    # output_schema.
+    section(13, "Thinking + structured output")
+    try:
+        response = complete(
+            model=model,
+            prompt="The largest city in Japan.",
+            output_schema=City,
+            thinking_effort="medium",
+        )
+        print_response("Thinking + structured output", response)
+    except Exception as e:
+        print(f"[FAILED] Thinking + structured output -> {type(e).__name__}: {e}")
+
+    # ── Section 14: Thinking + streaming ──────────────────────────────────
+    # Reasoning effort combined with streaming. Only the text deltas are
+    # yielded; thinking blocks are not surfaced as tokens.
+    section(14, "Thinking + streaming")
+    try:
+        token_iter = complete(
+            model=model,
+            prompt="Count from 1 to 5.",
+            thinking_effort="low",
+            stream=True,
+        )
+        print("[OK] Thinking + streaming")
+        print("  tokens: ", end="")
+        for token in token_iter:
+            print(token, end="", flush=True)
+        print()  # newline after stream
+    except Exception as e:
+        print(f"[FAILED] Thinking + streaming -> {type(e).__name__}: {e}")
 
     # ── Done ──────────────────────────────────────────────────────────────
     print(f"\n{SEPARATOR}")
