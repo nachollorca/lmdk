@@ -1,73 +1,16 @@
 """Implements the provider to use models hosted in the OpenAI API."""
 
 from collections.abc import Iterator
-from copy import deepcopy
-from typing import Any
 
 from lmdk.datatypes import CompletionRequest
 from lmdk.provider import Provider, RawResponse
+from lmdk.providers._schema import prepare_schema
 
 OPENAI_API_URL = "https://api.openai.com/v1/responses"
 
-_SCHEMA_COMBINATORS = ("anyOf", "oneOf", "allOf")
 _TEMPERATURE_RESTRICTED_MODEL_PREFIXES = ("gpt-5", "o1", "o3", "o4")
 _TEMPERATURE_RESTRICTED_KWARGS = {"temperature", "top_p"}
 _MIN_MAX_OUTPUT_TOKENS = 16
-
-
-def _prepare_schema(schema: dict[str, Any]) -> dict[str, Any]:
-    """Prepare a Pydantic JSON schema for OpenAI structured outputs.
-
-    OpenAI's strict JSON-schema mode requires every object node to declare
-    ``additionalProperties: false`` and all object properties to be listed in
-    ``required``. Pydantic also emits ``default`` entries for fields with
-    defaults, which are not part of OpenAI's supported strict-schema subset.
-
-    The input schema is deep-copied and never mutated.
-    """
-    prepared = deepcopy(schema)
-    _prepare_schema_in_place(prepared)
-    return prepared
-
-
-def _prepare_schema_in_place(node: Any) -> None:
-    """Recursively normalize a JSON Schema node in place."""
-    if not isinstance(node, dict):
-        return
-
-    node.pop("default", None)
-
-    _prepare_object_schema(node)
-    _prepare_recursive_schemas(node)
-
-
-def _prepare_object_schema(node: dict[str, Any]) -> None:
-    """Handle object-specific JSON Schema normalization."""
-    properties = node.get("properties")
-    if node.get("type") == "object" or isinstance(properties, dict):
-        node["additionalProperties"] = False
-        if isinstance(properties, dict):
-            node["required"] = list(properties.keys())
-            for prop in properties.values():
-                _prepare_schema_in_place(prop)
-
-
-def _prepare_recursive_schemas(node: dict[str, Any]) -> None:
-    """Handle recursive JSON Schema structures."""
-    if "$defs" in node:
-        for definition in node["$defs"].values():
-            _prepare_schema_in_place(definition)
-
-    if "items" in node:
-        _prepare_schema_in_place(node["items"])
-
-    additional_properties = node.get("additionalProperties")
-    if isinstance(additional_properties, dict):
-        _prepare_schema_in_place(additional_properties)
-
-    for key in _SCHEMA_COMBINATORS:
-        for option in node.get(key, []) or []:
-            _prepare_schema_in_place(option)
 
 
 class OpenaiProvider(Provider):
@@ -131,7 +74,7 @@ class OpenaiProvider(Provider):
                 "format": {
                     "type": "json_schema",
                     "name": request.output_schema.__name__,
-                    "schema": _prepare_schema(request.output_schema.model_json_schema()),
+                    "schema": prepare_schema(request.output_schema.model_json_schema()),
                     "strict": True,
                 },
             }

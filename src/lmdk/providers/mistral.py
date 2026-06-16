@@ -4,6 +4,7 @@ from collections.abc import Iterator
 
 from lmdk.datatypes import CompletionRequest
 from lmdk.provider import Provider, RawResponse
+from lmdk.providers._schema import prepare_schema
 
 MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
 
@@ -42,7 +43,8 @@ class MistralProvider(Provider):
                 "type": "json_schema",
                 "json_schema": {
                     "name": request.output_schema.__name__,
-                    "schema": request.output_schema.model_json_schema(),
+                    "schema": prepare_schema(request.output_schema.model_json_schema()),
+                    "strict": True,
                 },
             }
         return payload
