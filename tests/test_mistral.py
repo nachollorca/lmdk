@@ -116,12 +116,15 @@ class TestBuildPayloadThinking:
         assert payload["reasoning_effort"] == "high"
 
     def test_explicit_reasoning_effort_overrides_thinking_effort(self):
+        # The override is passed through verbatim; lmdk does not validate it.
+        # Use a sentinel value to assert passthrough without implying it is a
+        # value the Mistral API actually accepts.
         request = _make_request(
             thinking_effort="high",
-            generation_kwargs={"reasoning_effort": "low"},
+            generation_kwargs={"reasoning_effort": "sentinel-override"},
         )
         payload = MistralProvider._build_payload(request)
-        assert payload["reasoning_effort"] == "low"
+        assert payload["reasoning_effort"] == "sentinel-override"
 
     def test_drops_sampling_kwargs_when_reasoning(self):
         request = _make_request(

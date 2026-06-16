@@ -34,14 +34,16 @@ class MistralProvider(Provider):
     def _build_payload(cls, request: CompletionRequest, stream: bool = False) -> dict:
         """Build the full request payload for the Mistral API."""
         generation_kwargs = dict(request.generation_kwargs or {})
-        # Mistral's chat API only accepts "high" for reasoning_effort, so any
-        # non-"none" lmdk level collapses to "high".
+        # Any non-"none" lmdk level collapses to "high" (the only level lmdk
+        # sends). Callers can still override this via generation_kwargs;
+        # accepted values may vary by model/API version.
         if request.thinking_effort != "none":
             # Mistral reasoning models reject sampling controls like
             # temperature/top_p (lmdk defaults temperature to 0). Drop them so
             # the request goes through cleanly.
             for key in _REASONING_INCOMPATIBLE_KWARGS:
                 generation_kwargs.pop(key, None)
+            # Caller-provided reasoning_effort wins; otherwise default to "high".
             generation_kwargs.setdefault("reasoning_effort", "high")
 
         payload: dict = {
