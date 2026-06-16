@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v2.5.0 (2026-06-16)
+
+### Features
+
+- Add strict option to output schema in Mistral payload
+  ([`0fe6f03`](https://github.com/nachollorca/lmdk/commit/0fe6f03ccc8f2b15c4d3bebe8e1219cd6ef869bc))
+
+### Refactoring
+
+- Implement JSON-Schema normalization for strict structured output
+  ([`30895b9`](https://github.com/nachollorca/lmdk/commit/30895b9cce149ed4e779ab77a39972fa60a80d5a))
+
+
 ## v2.4.0 (2026-06-12)
 
 ### Documentation
