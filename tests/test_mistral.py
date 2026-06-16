@@ -123,6 +123,41 @@ class TestBuildPayloadThinking:
         payload = MistralProvider._build_payload(request)
         assert payload["reasoning_effort"] == "low"
 
+    def test_drops_sampling_kwargs_when_reasoning(self):
+        request = _make_request(
+            thinking_effort="high",
+            generation_kwargs={"temperature": 0, "top_p": 0.9},
+        )
+        payload = MistralProvider._build_payload(request)
+        assert "temperature" not in payload
+        assert "top_p" not in payload
+
+    def test_keeps_sampling_kwargs_when_not_reasoning(self):
+        request = _make_request(generation_kwargs={"temperature": 0})
+        payload = MistralProvider._build_payload(request)
+        assert payload["temperature"] == 0
+
+
+# ---------------------------------------------------------------------------
+# _extract_text — reasoning chunk handling
+# ---------------------------------------------------------------------------
+
+
+class TestExtractText:
+    def test_plain_string(self):
+        assert MistralProvider._extract_text("hello") == "hello"
+
+    def test_none_returns_empty(self):
+        assert MistralProvider._extract_text(None) == ""
+
+    def test_list_keeps_only_text_chunks(self):
+        content = [
+            {"type": "thinking", "thinking": [{"type": "text", "text": "reasoning..."}]},
+            {"type": "text", "text": "the "},
+            {"type": "text", "text": "answer"},
+        ]
+        assert MistralProvider._extract_text(content) == "the answer"
+
 
 # ---------------------------------------------------------------------------
 # _send_request — basic text completion

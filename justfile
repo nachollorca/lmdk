@@ -50,3 +50,6 @@ ipython:
 
 validate model="":
     uv run --env-file .env example.py {{ model }}
+
+validate-all:
+    uv run --env-file .env validate_all.py

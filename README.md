@@ -128,10 +128,10 @@ response = complete(
 `thinking_effort` is mapped per provider:
 - OpenAI: `reasoning.effort`
 - Vertex (Gemini 3): `thinkingConfig.thinkingLevel` (`"low"` / `"medium"` / `"high"`). `"none"` is a no-op since Gemini 3 can't disable thinking.
-- Anthropic: `thinking={type: "enabled", budget_tokens: ...}` (low=1024, medium=8192, high=16384). Sampling kwargs (`temperature`, `top_p`, `top_k`) are dropped to satisfy the API constraint.
+- Anthropic: adaptive thinking (`thinking={type: "adaptive"}`) with the effort level passed as `output_config.effort` (`"low"` / `"medium"` / `"high"`). Sampling kwargs (`temperature`, `top_p`, `top_k`) are dropped to satisfy the API constraint.
 - Mistral: `reasoning_effort` (the API only accepts `"high"`, so any non-`"none"` level maps to `"high"`)
 
-`generation_kwargs` still wins as an escape hatch when you need exact provider-native values (e.g. `generation_kwargs={"thinkingConfig": {"thinkingBudget": 256}}` on Vertex).
+`generation_kwargs` still wins as an escape hatch when you need exact provider-native values (e.g. `generation_kwargs={"thinkingConfig": {"thinkingLevel": "low"}}` on Vertex).
 </details>
 
 <details>

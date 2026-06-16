@@ -7,6 +7,9 @@ from lmdk.provider import Provider, RawResponse
 
 MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
 
+# Sampling controls Mistral rejects when ``reasoning_effort`` is enabled.
+_REASONING_INCOMPATIBLE_KWARGS = ("temperature", "top_p")
+
 
 class MistralProvider(Provider):
     """Provider for models hosted on the Mistral API."""
@@ -34,6 +37,11 @@ class MistralProvider(Provider):
         # Mistral's chat API only accepts "high" for reasoning_effort, so any
         # non-"none" lmdk level collapses to "high".
         if request.thinking_effort != "none":
+            # Mistral reasoning models reject sampling controls like
+            # temperature/top_p (lmdk defaults temperature to 0). Drop them so
+            # the request goes through cleanly.
+            for key in _REASONING_INCOMPATIBLE_KWARGS:
+                generation_kwargs.pop(key, None)
             generation_kwargs.setdefault("reasoning_effort", "high")
 
         payload: dict = {
@@ -53,6 +61,20 @@ class MistralProvider(Provider):
             }
         return payload
 
+    @staticmethod
+    def _extract_text(content: str | list | None) -> str:
+        """Extract the answer text from a Mistral message ``content``.
+
+        With ``reasoning_effort`` enabled, ``content`` is a list of chunks
+        (``thinking`` + ``text``) instead of a plain string. Only the text
+        chunks form the final answer; thinking traces are discarded.
+        """
+        if isinstance(content, list):
+            return "".join(
+                chunk.get("text", "") for chunk in content if chunk.get("type") == "text"
+            )
+        return content or ""
+
     @classmethod
     def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
         response = cls._make_request(
@@ -63,7 +85,7 @@ class MistralProvider(Provider):
 
         body = response.json()
         return RawResponse(
-            content=body["choices"][0]["message"]["content"],
+            content=cls._extract_text(body["choices"][0]["message"]["content"]),
             input_tokens=body["usage"]["prompt_tokens"],
             output_tokens=body["usage"]["completion_tokens"],
         )
@@ -82,6 +104,9 @@ class MistralProvider(Provider):
         for chunk in cls._iter_sse_chunks(response):
             choices = chunk.get("choices", [])
             if choices:
-                token = choices[0].get("delta", {}).get("content", "")
+                # With reasoning enabled, delta.content is a list of chunks
+                # during the thinking phase and a plain string afterwards.
+                # Only surface the text (answer) tokens.
+                token = cls._extract_text(choices[0].get("delta", {}).get("content", ""))
                 if token:
                     yield token

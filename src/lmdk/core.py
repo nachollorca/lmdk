@@ -1,7 +1,7 @@
 """Contains the main logic to call language model APIs."""
 
 from collections.abc import Iterator, Sequence
-from typing import Any, Literal, overload
+from typing import Any, Literal, get_args, overload
 
 from pydantic import BaseModel
 
@@ -71,11 +71,14 @@ def complete(
             provider (e.g. ``temperature``, ``max_tokens``).
             Defaults to ``{"temperature": 0}``.
         thinking_effort: Cross-provider reasoning/thinking control. ``"none"``
-            (default) disables thinking; ``"low"``/``"medium"``/``"high"`` map
-            to the provider's native knob (OpenAI ``reasoning.effort``, Vertex
-            ``thinkingConfig.thinkingBudget``, Anthropic ``thinking``, Mistral
-            ``reasoning_effort``). ``generation_kwargs`` overrides the mapped
-            value for power-user escape hatches.
+            (default) disables thinking where supported; ``"low"``/``"medium"``
+            /``"high"`` map to the provider's native knob (OpenAI
+            ``reasoning.effort``, Vertex ``thinkingConfig.thinkingLevel``,
+            Anthropic ``thinking``, Mistral ``reasoning_effort``). On Vertex
+            (Gemini 3), thinking cannot be disabled, so ``"none"`` is a no-op
+            and the model's default thinking behavior applies.
+            ``generation_kwargs`` overrides the mapped value for power-user
+            escape hatches.
 
     Returns:
         A ``CompletionResponse`` with the generated content and metadata, or an
@@ -87,6 +90,7 @@ def complete(
     # early stop
     if output_schema and stream:
         raise ValueError("Only `stream` or `output_schema` can be set, not both.")
+    _validate_thinking_effort(thinking_effort)
 
     # set defaults and normalize overloaded params
     models = [model] if isinstance(model, str) else model
@@ -114,6 +118,15 @@ def complete(
     if len(errors) == 1:
         raise next(iter(errors.values()))
     raise AllModelsFailedError(errors)
+
+
+def _validate_thinking_effort(thinking_effort: ThinkingEffort) -> None:
+    valid = get_args(ThinkingEffort)
+    if thinking_effort not in valid:
+        raise ValueError(
+            f"Invalid thinking_effort {thinking_effort!r}; "
+            f"expected one of {', '.join(map(repr, valid))}."
+        )
 
 
 def _normalize_prompt(prompt: str | Sequence[Message]) -> Sequence[Message]:
@@ -198,6 +211,7 @@ def complete_batch(
         ``output_tokens``, ``latency``, ``parsed``, ``output``) computed over
         the successful responses.
     """
+    _validate_thinking_effort(thinking_effort)
     shared_kwargs: dict[str, Any] = {
         "model": model,
         "system_instruction": system_instruction,
