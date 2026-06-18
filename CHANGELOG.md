@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v2.5.1 (2026-06-18)
+
+### Bug Fixes
+
+- **anthropic**: Now anthropic rejects sampling params like temperature, so we have to remove our 0
+  default
+  ([`e7e3883`](https://github.com/nachollorca/lmdk/commit/e7e3883f95e009d29ea985c8f7b39221df8fd013))
+
+### Documentation
+
+- Correct command in readme, add short general agent context
+  ([`c12c3e8`](https://github.com/nachollorca/lmdk/commit/c12c3e8755a9589641edebe6fdf0fbdbad73722c))
+
+
 ## v2.5.0 (2026-06-16)
 
 ### Features
