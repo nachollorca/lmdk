@@ -272,7 +272,7 @@ src/lmdk/
 
 ### Tooling
 We use `just` for development tasks. Use:
-- `just sync`: Updates lockfile and syncs environment.
+- `just install`: Sync environment from the lockfile.
 - `just format`: Lints and formats with `ruff`.
 - `just check-types`: Static analysis with `ty`.
 - `just check-complexity`: Cyclomatic complexity checks with `complexipy`.
