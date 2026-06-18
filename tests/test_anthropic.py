@@ -169,10 +169,18 @@ class TestBuildPayload:
         assert payload["max_tokens"] == DEFAULT_MAX_TOKENS
 
     def test_generation_kwargs_forwarded(self):
-        request = _make_request(generation_kwargs={"temperature": 0.9, "top_p": 0.95})
+        request = _make_request(generation_kwargs={"stop_sequences": ["END"]})
         payload = AnthropicProvider._build_payload(request)
-        assert payload["temperature"] == 0.9
-        assert payload["top_p"] == 0.95
+        assert payload["stop_sequences"] == ["END"]
+
+    def test_drops_sampling_kwargs(self):
+        request = _make_request(
+            generation_kwargs={"temperature": 0, "top_p": 0.9, "top_k": 40},
+        )
+        payload = AnthropicProvider._build_payload(request)
+        assert "temperature" not in payload
+        assert "top_p" not in payload
+        assert "top_k" not in payload
 
     def test_output_config_for_structured_output(self):
         request = _make_request(output_schema=Person)
@@ -313,13 +321,13 @@ class TestSendRequest:
 
     def test_generation_kwargs_forwarded(self):
         mock_resp = _mock_chat_response()
-        request = _make_request(generation_kwargs={"temperature": 0.9, "max_tokens": 100})
+        request = _make_request(generation_kwargs={"max_tokens": 100, "stop_sequences": ["END"]})
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
             AnthropicProvider._send_request(request, credentials={"ANTHROPIC_API_KEY": "sk-test"})
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
-        assert payload["temperature"] == 0.9
         assert payload["max_tokens"] == 100
+        assert payload["stop_sequences"] == ["END"]
 
     def test_system_instruction_in_payload(self):
         mock_resp = _mock_chat_response()

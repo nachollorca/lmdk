@@ -9,6 +9,7 @@ from lmdk.provider import Provider, RawResponse
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MAX_TOKENS = 4096
+_SAMPLING_RESTRICTED_KWARGS = {"temperature", "top_p", "top_k"}
 
 
 def _prepare_schema(schema: dict[str, Any]) -> dict[str, Any]:
@@ -66,13 +67,22 @@ class AnthropicProvider(Provider):
         return [m.to_dict() for m in request.prompt]
 
     @classmethod
+    def _normalize_generation_kwargs(cls, request: CompletionRequest) -> dict:
+        kwargs = dict(request.generation_kwargs or {})
+        # Newer Anthropic models reject sampling params; lmdk's global temperature=0
+        # default would otherwise trigger HTTP 400.
+        for key in _SAMPLING_RESTRICTED_KWARGS:
+            kwargs.pop(key, None)
+        return kwargs
+
+    @classmethod
     def _build_payload(cls, request: CompletionRequest, stream: bool = False) -> dict:
         """Build the full request payload for the Anthropic API.
 
         ``max_tokens`` is required by the Anthropic API. If not provided in
         ``generation_kwargs``, a default of 4096 is used.
         """
-        generation_kwargs = dict(request.generation_kwargs or {})
+        generation_kwargs = cls._normalize_generation_kwargs(request)
         max_tokens = generation_kwargs.pop("max_tokens", DEFAULT_MAX_TOKENS)
 
         payload: dict = {
