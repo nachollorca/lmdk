@@ -28,25 +28,25 @@ run-hooks:
 
 # Code quality ----------------------------------------------------------------
 format *paths=".":
-    uv run ruff check --fix {{ paths }}
-    uv run ruff format {{ paths }}
+    uv run --frozen ruff check --fix {{ paths }}
+    uv run --frozen ruff format {{ paths }}
 
 check-types *paths=".":
-    uv run ty check {{ paths }}
+    uv run --frozen ty check {{ paths }}
 
 check-complexity *paths=".":
-    uv run complexipy {{ paths }}
+    uv run --frozen complexipy {{ paths }}
 
 # Test and run ----------------------------------------------------------------
 test target="":
-    uv run pytest --cov --cov-fail-under=90 {{ target }}
+    uv run --frozen pytest --cov --cov-fail-under=90 {{ target }}
 
 run file:
-    uv run --env-file .env {{ file }}
+    uv run --frozen --env-file .env {{ file }}
 
 # Project specific commands ---------------------------------------------------
 ipython:
-    uv run ipython
+    uv run --frozen ipython
 
 validate model="":
-    uv run --env-file .env example.py {{ model }}
+    uv run --frozen --env-file .env example.py {{ model }}
