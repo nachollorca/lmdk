@@ -27,15 +27,15 @@ run-hooks:
     prek run --show-diff-on-failure --color=always -a
 
 # Code quality ----------------------------------------------------------------
-format:
-    uv run ruff check --fix .
-    uv run ruff format .
+format *paths=".":
+    uv run ruff check --fix {{ paths }}
+    uv run ruff format {{ paths }}
 
-check-types:
-    uv run ty check src
+check-types *paths=".":
+    uv run ty check {{ paths }}
 
-check-complexity:
-    uv run complexipy src
+check-complexity *paths=".":
+    uv run complexipy {{ paths }}
 
 # Test and run ----------------------------------------------------------------
 test target="":

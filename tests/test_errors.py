@@ -63,7 +63,7 @@ class TestProviderError:
 
 class TestAllModelsFailedError:
     def test_summary_message(self):
-        errors = {
+        errors: dict[str, Exception] = {
             "provider_a:model1": ValueError("timeout"),
             "provider_b:model2": RuntimeError("crash"),
         }
@@ -73,7 +73,7 @@ class TestAllModelsFailedError:
         assert err.errors is errors
 
     def test_single_error(self):
-        errors = {"p:m": ValueError("fail")}
+        errors: dict[str, Exception] = {"p:m": ValueError("fail")}
         err = AllModelsFailedError(errors)
         assert "p:m" in str(err)
 

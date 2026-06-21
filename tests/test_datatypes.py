@@ -89,7 +89,7 @@ class TestCompletionRequest:
             generation_kwargs={},
         )
         with pytest.raises(FrozenInstanceError):
-            req.model_id = "other"
+            req.model_id = "other"  # ty: ignore[invalid-assignment]
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +123,9 @@ class TestCompletionResponse:
             content="happy", input_tokens=1, output_tokens=1, latency=0.0, parsed=mood
         )
         assert resp.parsed == mood
-        assert resp.parsed.label == "happy"
+        parsed = resp.parsed
+        assert parsed is not None
+        assert parsed.label == "happy"
 
 
 # ---------------------------------------------------------------------------
@@ -201,7 +203,9 @@ class TestCompletionBatch:
         batch = CompletionBatch(results=[r1, r2])
 
         assert len(batch.parsed) == 2
+        assert isinstance(batch.parsed[0], SingleField)
         assert batch.parsed[0].summary == "a"
+        assert isinstance(batch.parsed[1], SingleField)
         assert batch.parsed[1].summary == "b"
 
     def test_skips_none_parsed(self):
@@ -220,7 +224,7 @@ class TestCompletionBatch:
     def test_frozen(self):
         batch = CompletionBatch(results=[])
         with pytest.raises(FrozenInstanceError):
-            batch.results = [_resp()]
+            batch.results = [_resp()]  # ty: ignore[invalid-assignment]
 
     def test_exceptions_are_separated_from_responses(self):
         r1 = _resp(input_tokens=5, output_tokens=3, latency=0.1)
