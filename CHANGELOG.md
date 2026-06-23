@@ -2,6 +2,29 @@
 
 <!-- version list -->
 
+## v2.6.0 (2026-06-23)
+
+### Bug Fixes
+
+- **tests**: Satisfy ty checks for completion helpers
+  ([`f9b94e5`](https://github.com/nachollorca/lmdk/commit/f9b94e597312d530294e060f365d6a6c3769e345))
+
+### Continuous Integration
+
+- **just**: Pass --frozen to uv run commands
+  ([`9806785`](https://github.com/nachollorca/lmdk/commit/98067857b3c7372d91390484c734c56939110722))
+
+### Refactoring
+
+- **ci**: Pass filenames from pre-commit hooks to just recipes
+  ([`9895913`](https://github.com/nachollorca/lmdk/commit/98959137680e0607c640affb38184791499df727))
+
+### Testing
+
+- Enforce typing, formatting, and complexity across all Python files
+  ([`f819fa0`](https://github.com/nachollorca/lmdk/commit/f819fa0cca1ad42d4667167c05ba9921ae7fbfef))
+
+
 ## v2.5.1 (2026-06-18)
 
 ### Bug Fixes
