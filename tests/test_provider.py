@@ -1,10 +1,18 @@
 """Tests for lmdk.provider — Provider ABC and load_provider."""
 
+from collections.abc import Sequence
 from unittest.mock import MagicMock, patch
 
 import pytest
+from conftest import make_completion_request
+from pydantic import BaseModel
 
-from lmdk.datatypes import CompletionRequest, CompletionResponse, UserMessage
+from lmdk.datatypes import (
+    CompletionRequest,
+    CompletionResponse,
+    Message,
+    ThinkingEffort,
+)
 from lmdk.errors import AuthenticationError, InternalServerError, RateLimitError
 from lmdk.provider import Provider, RawResponse, load_provider
 
@@ -13,16 +21,23 @@ from lmdk.provider import Provider, RawResponse, load_provider
 # ---------------------------------------------------------------------------
 
 
-def _make_request(**overrides) -> CompletionRequest:
-    defaults = {
-        "model_id": "test-model",
-        "prompt": [UserMessage(content="hi")],
-        "system_instruction": None,
-        "output_schema": None,
-        "generation_kwargs": {},
-    }
-    defaults.update(overrides)
-    return CompletionRequest(**defaults)
+def _make_request(
+    *,
+    model_id: str = "test-model",
+    prompt: Sequence[Message] | None = None,
+    system_instruction: str | None = None,
+    output_schema: type[BaseModel] | None = None,
+    generation_kwargs: dict | None = None,
+    thinking_effort: ThinkingEffort = "none",
+) -> CompletionRequest:
+    return make_completion_request(
+        model_id=model_id,
+        prompt=prompt,
+        system_instruction=system_instruction,
+        output_schema=output_schema,
+        generation_kwargs=generation_kwargs,
+        thinking_effort=thinking_effort,
+    )
 
 
 def _mock_http_response(status_code: int, reason: str = "Error", text: str = "") -> MagicMock:

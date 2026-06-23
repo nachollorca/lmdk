@@ -192,10 +192,25 @@ class ListField(BaseModel):
     items: list[str]
 
 
-def _resp(content="x", parsed=None, **kw):
-    defaults = {"input_tokens": 10, "output_tokens": 5, "latency": 0.1}
-    defaults.update(kw)
-    return CompletionResponse(content=content, parsed=parsed, **defaults)
+def _resp(
+    content: str = "x",
+    parsed=None,
+    *,
+    input_tokens: int = 10,
+    output_tokens: int = 5,
+    thinking: str | None = None,
+    thinking_tokens: int = 0,
+    latency: float = 0.1,
+) -> CompletionResponse:
+    return CompletionResponse(
+        content=content,
+        parsed=parsed,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        thinking=thinking,
+        thinking_tokens=thinking_tokens,
+        latency=latency,
+    )
 
 
 # ---------------------------------------------------------------------------

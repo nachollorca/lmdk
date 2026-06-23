@@ -1,11 +1,13 @@
 """Tests for lmdk.providers.openai — OpenaiProvider."""
 
 import json
+from collections.abc import Sequence
 from unittest.mock import MagicMock, patch
 
+from conftest import make_completion_request
 from pydantic import BaseModel
 
-from lmdk.datatypes import CompletionRequest, UserMessage
+from lmdk.datatypes import CompletionRequest, Message, ThinkingEffort
 from lmdk.provider import RawResponse
 from lmdk.providers.openai import OPENAI_API_URL, OpenAIProvider, OpenaiProvider
 
@@ -14,16 +16,23 @@ from lmdk.providers.openai import OPENAI_API_URL, OpenAIProvider, OpenaiProvider
 # ---------------------------------------------------------------------------
 
 
-def _make_request(**overrides) -> CompletionRequest:
-    defaults = {
-        "model_id": "gpt-5.5",
-        "prompt": [UserMessage(content="hi")],
-        "system_instruction": None,
-        "output_schema": None,
-        "generation_kwargs": {},
-    }
-    defaults.update(overrides)
-    return CompletionRequest(**defaults)
+def _make_request(
+    *,
+    model_id: str = "gpt-5.5",
+    prompt: Sequence[Message] | None = None,
+    system_instruction: str | None = None,
+    output_schema: type[BaseModel] | None = None,
+    generation_kwargs: dict | None = None,
+    thinking_effort: ThinkingEffort = "none",
+) -> CompletionRequest:
+    return make_completion_request(
+        model_id=model_id,
+        prompt=prompt,
+        system_instruction=system_instruction,
+        output_schema=output_schema,
+        generation_kwargs=generation_kwargs,
+        thinking_effort=thinking_effort,
+    )
 
 
 def _mock_chat_response(content: str = "hello", input_tokens: int = 10, output_tokens: int = 5):

@@ -82,7 +82,7 @@ def test_telemetry_off_does_not_import_opentelemetry(monkeypatch):
     with traced_completion(
         FakeProvider, "fake", "model", _request(), fallback_index=0
     ) as telemetry:
-        telemetry.record_response(RawResponse(content="ok", input_tokens=1, output_tokens=2))
+        telemetry.record_response(CompletionResponse(content="ok", input_tokens=1, output_tokens=2))
 
     assert calls == []
 
@@ -99,7 +99,7 @@ def test_enabled_telemetry_gracefully_noops_when_opentelemetry_is_missing(monkey
     with traced_completion(
         FakeProvider, "fake", "model", _request(), fallback_index=0
     ) as telemetry:
-        telemetry.record_response(RawResponse(content="ok", input_tokens=1, output_tokens=2))
+        telemetry.record_response(CompletionResponse(content="ok", input_tokens=1, output_tokens=2))
 
 
 def test_metadata_mode_records_span_attributes_and_metrics(
@@ -240,7 +240,7 @@ def test_content_mode_records_prompt_system_instruction_and_response(monkeypatch
     with traced_completion(
         FakeProvider, "fake", "model", _request(), fallback_index=2
     ) as telemetry:
-        telemetry.record_response(RawResponse(content="ok", input_tokens=1, output_tokens=2))
+        telemetry.record_response(CompletionResponse(content="ok", input_tokens=1, output_tokens=2))
 
     span = span_exporter.get_finished_spans()[0]
     assert json.loads(span.attributes["gen_ai.input.messages"]) == [
