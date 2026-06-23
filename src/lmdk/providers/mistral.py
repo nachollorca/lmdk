@@ -34,9 +34,10 @@ class MistralProvider(Provider):
     def _build_payload(cls, request: CompletionRequest, stream: bool = False) -> dict:
         """Build the full request payload for the Mistral API."""
         generation_kwargs = dict(request.generation_kwargs or {})
-        # Any non-"none" lmdk level collapses to "high" (the only level lmdk
-        # sends). Callers can still override this via generation_kwargs;
-        # accepted values may vary by model/API version.
+        # Mistral adjustable reasoning models only accept reasoning_effort
+        # "none" or "high" (low/medium return 400). Map any non-"none" lmdk
+        # thinking_effort to "high" so cross-provider effort levels still
+        # enable reasoning. Callers can override via generation_kwargs.
         if request.thinking_effort != "none":
             # Mistral reasoning models reject sampling controls like
             # temperature/top_p (lmdk defaults temperature to 0). Drop them so

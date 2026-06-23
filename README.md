@@ -4,6 +4,7 @@ What it offers:
 - **Simplest interface to call different Language Model APIs**
 - Minimal dependencies: HTTP requests only, no third party packages
 - Streaming
+- Thinking / reasoning efforts
 - Comfy structured outputs via Pydantic models, **only if the provider / model supports it natively**
 - Parallel completions
 - Unified HTTP error handling
@@ -112,6 +113,10 @@ response = complete(model=model, prompt="How do I make cheescake?", output_schem
 <details>
 <summary>Reasoning / thinking</summary>
 
+`lmdk` offers 4 thinking configurations for the time-test compute of recent LLMs.
+We map them to the configs available on the provider side.
+See the documentation on each provider for more info.
+
 ```python
 # "none" (default) | "low" | "medium" | "high"
 response = complete(model=model, prompt="Solve this carefully...", thinking_effort="high")
@@ -124,14 +129,7 @@ response = complete(
     thinking_effort="medium",
 )
 ```
-
-`thinking_effort` is mapped per provider:
-- OpenAI: `reasoning.effort`
-- Vertex (Gemini 3): `thinkingConfig.thinkingLevel`. `"none"` maps to `"minimal"` on Flash / Flash-Lite models (`"low"` on Pro, which rejects `"minimal"`); `"low"` / `"medium"` / `"high"` pass through. Gemini 3 cannot fully disable thinking.
-- Anthropic: adaptive thinking (`thinking={type: "adaptive"}`) with the effort level passed as `output_config.effort` (`"low"` / `"medium"` / `"high"`). Sampling kwargs (`temperature`, `top_p`, `top_k`) are dropped to satisfy the API constraint.
-- Mistral: `reasoning_effort`. By default lmdk maps any non-`"none"` level to `"high"`, since that is the only value Mistral's chat API is documented to accept. You can still override it through `generation_kwargs` (e.g. `generation_kwargs={"reasoning_effort": "low"}`), but the API may reject values other than `"high"`.
-
-`generation_kwargs` still wins as an escape hatch when you need exact provider-native values (e.g. `generation_kwargs={"thinkingConfig": {"thinkingLevel": "low"}}` on Vertex).
+The usage of the thinking can be seen in the respective `CompletionResponse.thinking` and `CompletionResponse.thinking_tokens` fields.
 </details>
 
 <details>
