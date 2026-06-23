@@ -32,19 +32,23 @@ def _mock_vertex_response(
     content: str = "hello",
     prompt_tokens: int = 10,
     candidates_tokens: int = 5,
+    thoughts_tokens: int = 0,
     parts: list[dict] | None = None,
 ):
     """Build a mock requests.Response that mimics a Vertex generateContent response."""
     if parts is None:
         parts = [{"text": content}]
+    usage_metadata: dict = {
+        "promptTokenCount": prompt_tokens,
+        "candidatesTokenCount": candidates_tokens,
+    }
+    if thoughts_tokens:
+        usage_metadata["thoughtsTokenCount"] = thoughts_tokens
     resp = MagicMock()
     resp.status_code = 200
     resp.json.return_value = {
         "candidates": [{"content": {"parts": parts}}],
-        "usageMetadata": {
-            "promptTokenCount": prompt_tokens,
-            "candidatesTokenCount": candidates_tokens,
-        },
+        "usageMetadata": usage_metadata,
     }
     return resp
 
@@ -369,6 +373,52 @@ class TestExtractText:
 
 
 # ---------------------------------------------------------------------------
+# _extract_thinking
+# ---------------------------------------------------------------------------
+
+
+class TestExtractThinking:
+    def test_extracts_thought_parts(self):
+        body = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "Let me think...", "thought": True},
+                            {"text": "Answer"},
+                        ]
+                    }
+                }
+            ]
+        }
+        assert VertexProvider._extract_thinking(body) == "Let me think..."
+
+    def test_concatenates_multiple_thought_parts(self):
+        body = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "step 1", "thought": True},
+                            {"text": " step 2", "thought": True},
+                            {"text": "done"},
+                        ]
+                    }
+                }
+            ]
+        }
+        assert VertexProvider._extract_thinking(body) == "step 1 step 2"
+
+    def test_returns_none_when_no_thought_parts(self):
+        body = {"candidates": [{"content": {"parts": [{"text": "Hello!"}]}}]}
+        assert VertexProvider._extract_thinking(body) is None
+
+    def test_returns_none_when_no_content(self):
+        body = {"candidates": [{}]}
+        assert VertexProvider._extract_thinking(body) is None
+
+
+# ---------------------------------------------------------------------------
 # _send_request
 # ---------------------------------------------------------------------------
 
@@ -472,6 +522,18 @@ class TestSendRequest:
 
         assert result.content == "The answer is 42."
 
+    def test_populates_thinking_and_thinking_tokens(self):
+        parts = [
+            {"text": "Let me think...", "thought": True},
+            {"text": "The answer is 42."},
+        ]
+        mock_resp = _mock_vertex_response(parts=parts, thoughts_tokens=40)
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            result = VertexProvider._send_request(_make_request(), credentials=CREDENTIALS)
+
+        assert result.thinking == "Let me think..."
+        assert result.thinking_tokens == 40
+
     def test_missing_usage_metadata_defaults_to_zero(self):
         resp = MagicMock()
         resp.status_code = 200
@@ -483,6 +545,8 @@ class TestSendRequest:
 
         assert result.input_tokens == 0
         assert result.output_tokens == 0
+        assert result.thinking is None
+        assert result.thinking_tokens == 0
 
 
 # ---------------------------------------------------------------------------

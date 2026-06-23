@@ -269,6 +269,10 @@ def main(model: str) -> None:
     # Exercises thinking_effort end-to-end: compare thinking_tokens across
     # effort levels, optionally surface thinking text, and smoke-test
     # combinations with structured output and streaming.
+    # Note: some providers (e.g. Mistral) return thinking text but aggregate
+    # thinking + answer into output_tokens with no separate thinking_tokens count.
+    # Local backends are backend-dependent: without server-side reasoning support
+    # (e.g. llama.cpp without thinking), all effort levels behave the same.
     section(12, "Thinking / reasoning")
     thinking_prompt = "What is 17 * 23? Think step by step, then give the final answer."
 

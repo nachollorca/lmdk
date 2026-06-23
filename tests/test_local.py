@@ -31,14 +31,28 @@ def _make_request(**overrides) -> CompletionRequest:
 
 
 def _mock_chat_response(
-    content: str = "hello", prompt_tokens: int = 10, completion_tokens: int = 5
+    content: str | list = "hello",
+    prompt_tokens: int = 10,
+    completion_tokens: int = 5,
+    *,
+    message: dict | None = None,
+    usage: dict | None = None,
 ):
     """Build a mock requests.Response that mimics an OpenAI-compatible completion."""
     resp = MagicMock()
     resp.status_code = 200
+    msg = message if message is not None else {"content": content}
+    use = (
+        usage
+        if usage is not None
+        else {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+        }
+    )
     resp.json.return_value = {
-        "choices": [{"message": {"content": content}}],
-        "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens},
+        "choices": [{"message": msg}],
+        "usage": use,
     }
     return resp
 
@@ -125,6 +139,8 @@ class TestSendRequest:
         assert result.content == "Hello there!"
         assert result.input_tokens == 10
         assert result.output_tokens == 5
+        assert result.thinking is None
+        assert result.thinking_tokens == 0
 
         # The location must be stripped from the model name sent to the server.
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
@@ -159,6 +175,93 @@ class TestSendRequest:
         assert rf["type"] == "json_schema"
         assert rf["json_schema"]["name"] == "Person"
         assert "schema" in rf["json_schema"]
+
+
+# ---------------------------------------------------------------------------
+# Thinking / reasoning extraction
+# ---------------------------------------------------------------------------
+
+
+class TestExtractText:
+    def test_plain_string(self):
+        assert LocalProvider._extract_text("hello") == "hello"
+
+    def test_none_returns_empty(self):
+        assert LocalProvider._extract_text(None) == ""
+
+    def test_list_keeps_only_text_chunks(self):
+        content = [
+            {"type": "thinking", "thinking": [{"type": "text", "text": "reasoning..."}]},
+            {"type": "text", "text": "the "},
+            {"type": "text", "text": "answer"},
+        ]
+        assert LocalProvider._extract_text(content) == "the answer"
+
+
+class TestExtractThinking:
+    def test_reasoning_content_field(self):
+        message = {"content": "answer", "reasoning_content": "let me think..."}
+        assert LocalProvider._extract_thinking(message) == "let me think..."
+
+    def test_list_thinking_chunks(self):
+        message = {
+            "content": [
+                {"type": "thinking", "thinking": [{"type": "text", "text": "step 1. "}]},
+                {"type": "text", "text": "done"},
+            ]
+        }
+        assert LocalProvider._extract_thinking(message) == "step 1. "
+
+    def test_absent_returns_none(self):
+        assert LocalProvider._extract_thinking({"content": "plain answer"}) is None
+
+
+class TestExtractThinkingTokens:
+    def test_reasoning_tokens_in_completion_details(self):
+        usage = {
+            "prompt_tokens": 10,
+            "completion_tokens": 20,
+            "completion_tokens_details": {"reasoning_tokens": 15},
+        }
+        assert LocalProvider._extract_thinking_tokens(usage) == 15
+
+    def test_thinking_tokens_alias(self):
+        usage = {"completion_tokens_details": {"thinking_tokens": 8}}
+        assert LocalProvider._extract_thinking_tokens(usage) == 8
+
+    def test_absent_returns_zero(self):
+        assert LocalProvider._extract_thinking_tokens({}) == 0
+
+
+class TestSendRequestThinking:
+    def test_o1_style_reasoning_content(self):
+        mock_resp = _mock_chat_response(
+            message={"content": "42", "reasoning_content": "counting..."},
+            usage={
+                "prompt_tokens": 5,
+                "completion_tokens": 12,
+                "completion_tokens_details": {"reasoning_tokens": 7},
+            },
+        )
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            result = LocalProvider._send_request(_make_request(), credentials={})
+
+        assert result.content == "42"
+        assert result.thinking == "counting..."
+        assert result.thinking_tokens == 7
+
+    def test_mistral_style_list_content(self):
+        content = [
+            {"type": "thinking", "thinking": [{"type": "text", "text": "hmm"}]},
+            {"type": "text", "text": "ok"},
+        ]
+        mock_resp = _mock_chat_response(message={"content": content})
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            result = LocalProvider._send_request(_make_request(), credentials={})
+
+        assert result.content == "ok"
+        assert result.thinking == "hmm"
+        assert result.thinking_tokens == 0
 
 
 # ---------------------------------------------------------------------------

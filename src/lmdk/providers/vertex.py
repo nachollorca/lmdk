@@ -240,6 +240,16 @@ class VertexProvider(Provider):
         text_parts = [p["text"] for p in parts if "text" in p and not p.get("thought")]
         return "".join(text_parts)
 
+    @classmethod
+    def _extract_thinking(cls, body: dict) -> str | None:
+        """Extract thinking summaries from ``thought`` parts in the response."""
+        candidate = body["candidates"][0]
+        content = candidate.get("content", {})
+        parts = content.get("parts", [])
+        thought_parts = [p["text"] for p in parts if "text" in p and p.get("thought")]
+        joined = "".join(thought_parts)
+        return joined if joined else None
+
     # ── Provider interface implementation ─────────────────────────────────
 
     @classmethod
@@ -261,6 +271,8 @@ class VertexProvider(Provider):
             content=content,
             input_tokens=usage.get("promptTokenCount", 0),
             output_tokens=usage.get("candidatesTokenCount", 0),
+            thinking=cls._extract_thinking(body),
+            thinking_tokens=usage.get("thoughtsTokenCount", 0),
         )
 
     @classmethod

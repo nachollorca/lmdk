@@ -27,14 +27,23 @@ def _make_request(**overrides) -> CompletionRequest:
 
 
 def _mock_chat_response(
-    content: str = "hello", prompt_tokens: int = 10, completion_tokens: int = 5
+    content: str | list = "hello",
+    prompt_tokens: int = 10,
+    completion_tokens: int = 5,
+    reasoning_tokens: int | None = None,
 ):
     """Build a mock requests.Response that mimics a Mistral chat completion."""
+    usage: dict = {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+    }
+    if reasoning_tokens is not None:
+        usage["reasoning_tokens"] = reasoning_tokens
     resp = MagicMock()
     resp.status_code = 200
     resp.json.return_value = {
         "choices": [{"message": {"content": content}}],
-        "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens},
+        "usage": usage,
     }
     return resp
 
@@ -162,6 +171,26 @@ class TestExtractText:
         assert MistralProvider._extract_text(content) == "the answer"
 
 
+class TestExtractThinking:
+    def test_plain_string_returns_none(self):
+        assert MistralProvider._extract_thinking("hello") is None
+
+    def test_none_returns_none(self):
+        assert MistralProvider._extract_thinking(None) is None
+
+    def test_list_extracts_thinking_chunks(self):
+        content = [
+            {"type": "thinking", "thinking": [{"type": "text", "text": "step 1. "}]},
+            {"type": "thinking", "thinking": [{"type": "text", "text": "step 2."}]},
+            {"type": "text", "text": "answer"},
+        ]
+        assert MistralProvider._extract_thinking(content) == "step 1. step 2."
+
+    def test_empty_thinking_returns_none(self):
+        content = [{"type": "text", "text": "answer"}]
+        assert MistralProvider._extract_thinking(content) is None
+
+
 # ---------------------------------------------------------------------------
 # _send_request — basic text completion
 # ---------------------------------------------------------------------------
@@ -179,6 +208,8 @@ class TestSendRequest:
         assert result.content == "Hello there!"
         assert result.input_tokens == 10
         assert result.output_tokens == 5
+        assert result.thinking is None
+        assert result.thinking_tokens == 0
 
         # Verify the POST call
         call_kwargs = mock_post.call_args
@@ -240,6 +271,37 @@ class TestSendRequest:
         rf = payload["response_format"]
         assert rf["type"] == "json_schema"
         assert rf["json_schema"]["name"] == "Recipe"
+
+    def test_reasoning_response_extracts_thinking(self):
+        content = [
+            {"type": "thinking", "thinking": [{"type": "text", "text": "17 * 23 = 391"}]},
+            {"type": "text", "text": "391"},
+        ]
+        mock_resp = _mock_chat_response(content=content, reasoning_tokens=42)
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            result = MistralProvider._send_request(
+                _make_request(thinking_effort="high"),
+                credentials={"MISTRAL_API_KEY": "test-key"},
+            )
+
+        assert result.content == "391"
+        assert result.thinking == "17 * 23 = 391"
+        assert result.thinking_tokens == 42
+
+    def test_reasoning_tokens_default_to_zero(self):
+        content = [
+            {"type": "thinking", "thinking": [{"type": "text", "text": "trace"}]},
+            {"type": "text", "text": "ok"},
+        ]
+        mock_resp = _mock_chat_response(content=content)
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            result = MistralProvider._send_request(
+                _make_request(thinking_effort="high"),
+                credentials={"MISTRAL_API_KEY": "test-key"},
+            )
+
+        assert result.thinking == "trace"
+        assert result.thinking_tokens == 0
 
 
 # ---------------------------------------------------------------------------

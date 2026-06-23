@@ -75,13 +75,32 @@ class MistralProvider(Provider):
 
         With ``reasoning_effort`` enabled, ``content`` is a list of chunks
         (``thinking`` + ``text``) instead of a plain string. Only the text
-        chunks form the final answer; thinking traces are discarded.
+        chunks form the final answer.
         """
         if isinstance(content, list):
             return "".join(
                 chunk.get("text", "") for chunk in content if chunk.get("type") == "text"
             )
         return content or ""
+
+    @staticmethod
+    def _extract_thinking(content: str | list | None) -> str | None:
+        """Extract thinking/reasoning text from a Mistral message ``content``.
+
+        With ``reasoning_effort`` enabled, thinking chunks look like
+        ``{"type": "thinking", "thinking": [{"type": "text", "text": "..."}]}``.
+        """
+        if not isinstance(content, list):
+            return None
+        parts = []
+        for chunk in content:
+            if chunk.get("type") != "thinking":
+                continue
+            for sub in chunk.get("thinking", []):
+                if sub.get("type") == "text":
+                    parts.append(sub.get("text", ""))
+        joined = "".join(parts)
+        return joined if joined else None
 
     @classmethod
     def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
@@ -92,10 +111,18 @@ class MistralProvider(Provider):
         )
 
         body = response.json()
+        message_content = body["choices"][0]["message"]["content"]
+        usage = body["usage"]
+        # Mistral surfaces thinking text in message chunks but does not report a
+        # separate token breakdown in usage (no reasoning_tokens or
+        # completion_tokens_details). completion_tokens includes thinking + answer.
+        # thinking_tokens stays 0 per the contract when no breakdown is available.
         return RawResponse(
-            content=cls._extract_text(body["choices"][0]["message"]["content"]),
-            input_tokens=body["usage"]["prompt_tokens"],
-            output_tokens=body["usage"]["completion_tokens"],
+            content=cls._extract_text(message_content),
+            input_tokens=usage["prompt_tokens"],
+            output_tokens=usage["completion_tokens"],
+            thinking=cls._extract_thinking(message_content),
+            thinking_tokens=usage.get("reasoning_tokens", 0),
         )
 
     @classmethod

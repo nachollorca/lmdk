@@ -83,7 +83,8 @@ class CompletionResponse(RawResponse, Generic[T]):  # noqa: UP046
         output_tokens: The number of tokens generated in the response.
         thinking: Optional thinking trace or summary when the provider exposes it.
         thinking_tokens: The number of output tokens spent on thinking. ``0`` when
-            the provider does not report a breakdown.
+            the provider does not report a breakdown (e.g. Mistral includes
+            thinking in ``output_tokens`` but exposes no separate count).
         latency: The time in seconds taken to generate the response.
         parsed: Optional parsed structured output as a BaseModel instance, or None
             if no output schema was specified.

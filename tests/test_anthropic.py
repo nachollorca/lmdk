@@ -30,16 +30,32 @@ def _make_request(**overrides) -> CompletionRequest:
     return CompletionRequest(**defaults)
 
 
-def _mock_chat_response(content: str = "hello", input_tokens: int = 10, output_tokens: int = 5):
+def _mock_chat_response(
+    content: str = "hello",
+    input_tokens: int = 10,
+    output_tokens: int = 5,
+    *,
+    thinking: str | None = None,
+    thinking_tokens: int = 0,
+):
     """Build a mock requests.Response that mimics an Anthropic message response."""
+    blocks: list[dict] = []
+    if thinking is not None:
+        blocks.append({"type": "thinking", "thinking": thinking})
+    blocks.append({"type": "text", "text": content})
+
+    usage: dict = {"input_tokens": input_tokens, "output_tokens": output_tokens}
+    if thinking_tokens:
+        usage["output_tokens_details"] = {"thinking_tokens": thinking_tokens}
+
     resp = MagicMock()
     resp.status_code = 200
     resp.json.return_value = {
         "id": "msg_test",
         "type": "message",
         "role": "assistant",
-        "content": [{"type": "text", "text": content}],
-        "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
+        "content": blocks,
+        "usage": usage,
     }
     return resp
 
@@ -333,6 +349,52 @@ class TestExtractText:
         body = {}
         assert AnthropicProvider._extract_text(body) == ""
 
+    def test_ignores_thinking_blocks(self):
+        body = {
+            "content": [
+                {"type": "thinking", "thinking": "Let me think..."},
+                {"type": "text", "text": "The answer"},
+            ]
+        }
+        assert AnthropicProvider._extract_text(body) == "The answer"
+
+
+# ---------------------------------------------------------------------------
+# _extract_thinking
+# ---------------------------------------------------------------------------
+
+
+class TestExtractThinking:
+    def test_extracts_thinking_block(self):
+        body = {
+            "content": [
+                {"type": "thinking", "thinking": "Let me think..."},
+                {"type": "text", "text": "The answer"},
+            ]
+        }
+        assert AnthropicProvider._extract_thinking(body) == "Let me think..."
+
+    def test_concatenates_multiple_thinking_blocks(self):
+        body = {
+            "content": [
+                {"type": "thinking", "thinking": "step 1"},
+                {"type": "thinking", "thinking": " step 2"},
+                {"type": "text", "text": "done"},
+            ]
+        }
+        assert AnthropicProvider._extract_thinking(body) == "step 1 step 2"
+
+    def test_returns_none_when_no_thinking_blocks(self):
+        body = {"content": [{"type": "text", "text": "Hello!"}]}
+        assert AnthropicProvider._extract_thinking(body) is None
+
+    def test_returns_none_when_empty_content(self):
+        body = {"content": []}
+        assert AnthropicProvider._extract_thinking(body) is None
+
+    def test_returns_none_when_missing_content_key(self):
+        assert AnthropicProvider._extract_thinking({}) is None
+
 
 # ---------------------------------------------------------------------------
 # _send_request — basic text completion
@@ -429,6 +491,31 @@ class TestSendRequest:
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         oc = payload["output_config"]
         assert oc["format"]["type"] == "json_schema"
+
+    def test_populates_thinking_and_thinking_tokens(self):
+        mock_resp = _mock_chat_response(
+            content="The answer is 391.",
+            thinking="17 * 23 = 391",
+            thinking_tokens=40,
+        )
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            result = AnthropicProvider._send_request(
+                _make_request(), credentials={"ANTHROPIC_API_KEY": "sk-test"}
+            )
+
+        assert result.content == "The answer is 391."
+        assert result.thinking == "17 * 23 = 391"
+        assert result.thinking_tokens == 40
+
+    def test_missing_thinking_defaults(self):
+        mock_resp = _mock_chat_response()
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            result = AnthropicProvider._send_request(
+                _make_request(), credentials={"ANTHROPIC_API_KEY": "sk-test"}
+            )
+
+        assert result.thinking is None
+        assert result.thinking_tokens == 0
 
 
 # ---------------------------------------------------------------------------

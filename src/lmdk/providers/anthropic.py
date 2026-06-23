@@ -140,6 +140,16 @@ class AnthropicProvider(Provider):
         return "".join(parts)
 
     @classmethod
+    def _extract_thinking(cls, body: dict) -> str | None:
+        """Extract thinking content from ``thinking`` blocks in the response."""
+        parts = []
+        for block in body.get("content", []):
+            if block.get("type") == "thinking":
+                parts.append(block["thinking"])
+        joined = "".join(parts)
+        return joined if joined else None
+
+    @classmethod
     def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
         response = cls._make_request(
             ANTHROPIC_API_URL,
@@ -148,10 +158,13 @@ class AnthropicProvider(Provider):
         )
 
         body = response.json()
+        usage = body.get("usage", {})
         return RawResponse(
             content=cls._extract_text(body),
-            input_tokens=body["usage"]["input_tokens"],
-            output_tokens=body["usage"]["output_tokens"],
+            input_tokens=usage.get("input_tokens", 0),
+            output_tokens=usage.get("output_tokens", 0),
+            thinking=cls._extract_thinking(body),
+            thinking_tokens=usage.get("output_tokens_details", {}).get("thinking_tokens", 0),
         )
 
     @classmethod

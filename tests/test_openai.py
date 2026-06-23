@@ -269,6 +269,76 @@ class TestExtractText:
 
 
 # ---------------------------------------------------------------------------
+# _extract_thinking
+# ---------------------------------------------------------------------------
+
+
+class TestExtractThinking:
+    def test_extracts_summary_text(self):
+        body = {
+            "output": [
+                {
+                    "type": "reasoning",
+                    "summary": [{"type": "summary_text", "text": "Let me think..."}],
+                }
+            ]
+        }
+        assert OpenaiProvider._extract_thinking(body) == "Let me think..."
+
+    def test_extracts_reasoning_text(self):
+        body = {
+            "output": [
+                {
+                    "type": "reasoning",
+                    "content": [{"type": "reasoning_text", "text": "step 1..."}],
+                }
+            ]
+        }
+        assert OpenaiProvider._extract_thinking(body) == "step 1..."
+
+    def test_concatenates_summary_and_content(self):
+        body = {
+            "output": [
+                {
+                    "type": "reasoning",
+                    "summary": [{"type": "summary_text", "text": "summary "}],
+                    "content": [{"type": "reasoning_text", "text": "detail"}],
+                }
+            ]
+        }
+        assert OpenaiProvider._extract_thinking(body) == "summary detail"
+
+    def test_concatenates_multiple_reasoning_items(self):
+        body = {
+            "output": [
+                {
+                    "type": "reasoning",
+                    "summary": [{"type": "summary_text", "text": "first "}],
+                },
+                {
+                    "type": "reasoning",
+                    "content": [{"type": "reasoning_text", "text": "second"}],
+                },
+            ]
+        }
+        assert OpenaiProvider._extract_thinking(body) == "first second"
+
+    def test_ignores_non_reasoning_output_items(self):
+        body = {
+            "output": [
+                {
+                    "type": "message",
+                    "content": [{"type": "output_text", "text": "answer"}],
+                }
+            ]
+        }
+        assert OpenaiProvider._extract_thinking(body) is None
+
+    def test_returns_none_when_no_reasoning(self):
+        assert OpenaiProvider._extract_thinking({}) is None
+
+
+# ---------------------------------------------------------------------------
 # _send_request — basic text completion
 # ---------------------------------------------------------------------------
 
@@ -285,6 +355,8 @@ class TestSendRequest:
         assert result.content == "Hello there!"
         assert result.input_tokens == 10
         assert result.output_tokens == 5
+        assert result.thinking is None
+        assert result.thinking_tokens == 0
         assert mock_post.call_args[0][0] == OPENAI_API_URL
         assert mock_post.call_args.kwargs["headers"]["Authorization"] == "Bearer sk-test"
 
@@ -299,6 +371,38 @@ class TestSendRequest:
         assert result.content == ""
         assert result.input_tokens == 0
         assert result.output_tokens == 0
+        assert result.thinking is None
+        assert result.thinking_tokens == 0
+
+    def test_populates_thinking_and_thinking_tokens(self):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {
+            "output": [
+                {
+                    "type": "reasoning",
+                    "summary": [{"type": "summary_text", "text": "Let me think..."}],
+                },
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "The answer is 42."}],
+                },
+            ],
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 50,
+                "output_tokens_details": {"reasoning_tokens": 40},
+            },
+        }
+        with patch("lmdk.provider.requests.post", return_value=resp):
+            result = OpenaiProvider._send_request(
+                _make_request(), credentials={"OPENAI_API_KEY": "sk-test"}
+            )
+
+        assert result.content == "The answer is 42."
+        assert result.thinking == "Let me think..."
+        assert result.thinking_tokens == 40
 
     def test_structured_output_payload(self):
         content = '{"name": "Alice", "age": 30}'
