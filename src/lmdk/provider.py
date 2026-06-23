@@ -76,6 +76,16 @@ class Provider(ABC):
         )
 
     @classmethod
+    def request_reasoning_level(cls, request: CompletionRequest) -> str:
+        """Return the reasoning level string sent to the provider for telemetry.
+
+        Maps to ``gen_ai.request.reasoning.level``. Returns the provider-specific
+        level when the outbound request includes a reasoning or thinking control,
+        otherwise ``"none"``.
+        """
+        return "none"
+
+    @classmethod
     @abstractmethod
     def _build_auth_headers(cls, credentials: dict[str, str]) -> dict:
         """Return provider-specific authentication headers."""

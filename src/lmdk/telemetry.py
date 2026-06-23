@@ -11,6 +11,7 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 from lmdk.datatypes import CompletionRequest, CompletionResponse
+from lmdk.provider import Provider
 
 # Targeted OpenTelemetry GenAI Semantic Conventions version: v1.41.0.
 # TODO: Revisit the targeted semconv version on each lmdk release.
@@ -80,6 +81,7 @@ class _CompletionTelemetry:
 
 @contextmanager
 def traced_completion(
+    provider: type[Provider],
     provider_name: str,
     model_id: str,
     request: CompletionRequest,
@@ -94,7 +96,9 @@ def traced_completion(
 
     trace, metrics = otel
     model_name, location = _split_model_and_location(model_id)
-    span_attributes = _span_attributes(provider_name, model_name, location, request, fallback_index)
+    span_attributes = _span_attributes(
+        provider, provider_name, model_name, location, request, fallback_index
+    )
     if mode == "content":
         span_attributes.update(_content_attributes(request))
 
@@ -172,6 +176,7 @@ def _split_model_and_location(model_id: str) -> tuple[str, str | None]:
 
 
 def _span_attributes(
+    provider: type[Provider],
     provider_name: str,
     model_name: str,
     location: str | None,
@@ -191,8 +196,7 @@ def _span_attributes(
         if value is not None:
             attributes[attribute_name] = value
 
-    if request.thinking_effort != "none":
-        attributes["gen_ai.request.reasoning_effort"] = request.thinking_effort
+    attributes["gen_ai.request.reasoning.level"] = provider.request_reasoning_level(request)
 
     return attributes
 

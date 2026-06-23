@@ -63,6 +63,12 @@ class MistralProvider(Provider):
             }
         return payload
 
+    @classmethod
+    def request_reasoning_level(cls, request: CompletionRequest) -> str:
+        """Return ``reasoning_effort`` from the outbound Mistral payload."""
+        effort = cls._build_payload(request, stream=False).get("reasoning_effort")
+        return effort if effort is not None else "none"
+
     @staticmethod
     def _extract_text(content: str | list | None) -> str:
         """Extract the answer text from a Mistral message ``content``.

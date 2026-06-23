@@ -142,6 +142,12 @@ class OpenaiProvider(Provider):
         return payload
 
     @classmethod
+    def request_reasoning_level(cls, request: CompletionRequest) -> str:
+        """Return ``reasoning.effort`` from the outbound OpenAI payload."""
+        effort = cls._build_payload(request, stream=False).get("reasoning", {}).get("effort")
+        return effort if effort is not None else "none"
+
+    @classmethod
     def _extract_text(cls, body: dict) -> str:
         """Extract generated text from an OpenAI Responses API body."""
         if isinstance(body.get("output_text"), str):

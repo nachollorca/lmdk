@@ -121,6 +121,12 @@ class AnthropicProvider(Provider):
         return payload
 
     @classmethod
+    def request_reasoning_level(cls, request: CompletionRequest) -> str:
+        """Return ``output_config.effort`` from the outbound Anthropic payload."""
+        effort = cls._build_payload(request, stream=False).get("output_config", {}).get("effort")
+        return effort if effort is not None else "none"
+
+    @classmethod
     def _extract_text(cls, body: dict) -> str:
         """Extract text content from the Anthropic response body.
 

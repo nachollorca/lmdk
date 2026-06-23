@@ -213,6 +213,17 @@ class VertexProvider(Provider):
 
         return payload
 
+    @classmethod
+    def request_reasoning_level(cls, request: CompletionRequest) -> str:
+        """Return ``thinkingConfig.thinkingLevel`` from the outbound Vertex payload."""
+        level = (
+            cls._build_payload(request)
+            .get("generationConfig", {})
+            .get("thinkingConfig", {})
+            .get("thinkingLevel")
+        )
+        return level if level is not None else "none"
+
     # ── Response extraction ───────────────────────────────────────────────
 
     @classmethod

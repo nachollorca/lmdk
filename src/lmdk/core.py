@@ -167,7 +167,7 @@ def _complete_model(
         return provider.complete(request=request, stream=True)
 
     with completion_lifecycle(
-        provider_name, model_id, request, fallback_index=fallback_index
+        provider, provider_name, model_id, request, fallback_index=fallback_index
     ) as record:
         response = provider.complete(request=request, stream=False)
         if isinstance(response, CompletionResponse):
