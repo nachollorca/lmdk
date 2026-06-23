@@ -66,6 +66,7 @@ class TestProviderComplete:
 
         monkeypatch.setenv("SINGLE_KEY", "secret-value")
         result = StrProvider.complete(request=_make_request(), stream=False)
+        assert isinstance(result, CompletionResponse)
         assert result.content == "secret-value"
 
     def test_resolves_credentials_with_tuple(self, monkeypatch):
@@ -90,6 +91,7 @@ class TestProviderComplete:
         monkeypatch.setenv("KEY1", "val1")
         monkeypatch.setenv("KEY2", "val2")
         result = TupleProvider.complete(request=_make_request(), stream=False)
+        assert isinstance(result, CompletionResponse)
         assert result.content == "val1-val2"
 
     def test_delegates_to_complete(self, fake_provider):

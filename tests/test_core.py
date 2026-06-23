@@ -189,9 +189,9 @@ class TestCompleteBatch:
         )
 
         assert len(batch) == 3
-        assert batch[0].content == "first"
-        assert batch[1].content == "second"
-        assert batch[2].content == "third"
+        assert batch.responses[0].content == "first"
+        assert batch.responses[1].content == "second"
+        assert batch.responses[2].content == "third"
         assert len(batch.errors) == 0
 
     def test_captures_per_item_exceptions(self, patch_load_provider):

@@ -245,7 +245,10 @@ class TestSendRequest:
         rf = payload["response_format"]
         assert rf["type"] == "json_schema"
         assert rf["json_schema"]["name"] == "Person"
-        assert "schema" in rf["json_schema"]
+        assert rf["json_schema"]["strict"] is True
+        schema = rf["json_schema"]["schema"]
+        assert schema["additionalProperties"] is False
+        assert schema["required"] == ["name", "age"]
 
     def test_structured_output_nested_payload(self):
         """Verify that nested schemas produce the correct response_format."""
@@ -271,6 +274,11 @@ class TestSendRequest:
         rf = payload["response_format"]
         assert rf["type"] == "json_schema"
         assert rf["json_schema"]["name"] == "Recipe"
+        assert rf["json_schema"]["strict"] is True
+        ingredient = rf["json_schema"]["schema"]["$defs"]["Ingredient"]
+        assert ingredient["additionalProperties"] is False
+        assert ingredient["required"] == ["name", "quantity", "unit"]
+        assert "default" not in ingredient["properties"]["unit"]
 
     def test_reasoning_response_extracts_thinking(self):
         content = [

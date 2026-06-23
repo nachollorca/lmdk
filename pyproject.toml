@@ -1,7 +1,7 @@
 # Project metadata ------------------------------------------------------------
 [project]
 name = "lmdk"
-version = "2.3.0"
+version = "2.5.1"
 description = "Language Model Development Kit."
 requires-python = ">=3.12"
 license = { text = "MIT" }

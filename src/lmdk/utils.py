@@ -85,17 +85,21 @@ def render_template(
     template: str | None = None,
     path: str | Path | None = None,
     *args,
+    strip_curly_brackets: bool = True,
     **kwargs,
 ) -> str:
     """Renders a Jinja2 template from a string or a file path.
 
-    Ensures that double curly braces in the input are removed to avoid rendering issues.
-    All string variables are stripped of leading/trailing whitespace.
+    By default, double curly braces in string variable values are removed to
+    avoid accidental nested rendering. All string variables are stripped of
+    leading/trailing whitespace.
 
     Args:
         template (str): The Jinja2 template string.
         path (str or Path): The path to a template file.
         *args: Positional arguments to pass to the template.
+        strip_curly_brackets: When ``True`` (default), strip ``{{`` and ``}}``
+            from string variable values before rendering.
         **kwargs: Keyword arguments to pass to the template.
 
     Returns:
@@ -104,6 +108,12 @@ def render_template(
     Raises:
         ValueError: If neither template nor path is provided, or if both are provided.
     """
+
+    def _process_value(value: str) -> str:
+        if strip_curly_brackets:
+            value = value.replace("{{", "").replace("}}", "")
+        return value.strip()
+
     if template is not None and path is not None:
         raise ValueError("Provide either 'template' or 'path', not both.")
     if template is None and path is None:
@@ -113,13 +123,9 @@ def render_template(
 
     template_content = Path(path).read_text() if path is not None else template
 
-    processed_args = [
-        arg.replace("{{", "").replace("}}", "").strip() if isinstance(arg, str) else arg
-        for arg in args
-    ]
+    processed_args = [_process_value(arg) if isinstance(arg, str) else arg for arg in args]
     processed_kwargs = {
-        k: v.replace("{{", "").replace("}}", "").strip() if isinstance(v, str) else v
-        for k, v in kwargs.items()
+        k: _process_value(v) if isinstance(v, str) else v for k, v in kwargs.items()
     }
     assert template_content is not None
     jinja_template = Template(template_content)

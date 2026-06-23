@@ -2,6 +2,46 @@
 
 <!-- version list -->
 
+## v2.5.1 (2026-06-18)
+
+### Bug Fixes
+
+- **anthropic**: Now anthropic rejects sampling params like temperature, so we have to remove our 0
+  default
+  ([`e7e3883`](https://github.com/nachollorca/lmdk/commit/e7e3883f95e009d29ea985c8f7b39221df8fd013))
+
+### Documentation
+
+- Correct command in readme, add short general agent context
+  ([`c12c3e8`](https://github.com/nachollorca/lmdk/commit/c12c3e8755a9589641edebe6fdf0fbdbad73722c))
+
+
+## v2.5.0 (2026-06-16)
+
+### Features
+
+- Add strict option to output schema in Mistral payload
+  ([`0fe6f03`](https://github.com/nachollorca/lmdk/commit/0fe6f03ccc8f2b15c4d3bebe8e1219cd6ef869bc))
+
+### Refactoring
+
+- Implement JSON-Schema normalization for strict structured output
+  ([`30895b9`](https://github.com/nachollorca/lmdk/commit/30895b9cce149ed4e779ab77a39972fa60a80d5a))
+
+
+## v2.4.0 (2026-06-12)
+
+### Documentation
+
+- **readme**: Add a reference to chatlas
+  ([`2b3162a`](https://github.com/nachollorca/lmdk/commit/2b3162a21a99641f4d839ad885c70fbf7e5ea453))
+
+### Features
+
+- **render_template**: Make the stripping of curly braces optional
+  ([`6bb0c0e`](https://github.com/nachollorca/lmdk/commit/6bb0c0e7766bc6c96c3c0d9d7b43231802d27d66))
+
+
 ## v2.3.0 (2026-05-29)
 
 ### Features

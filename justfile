@@ -27,29 +27,26 @@ run-hooks:
     prek run --show-diff-on-failure --color=always -a
 
 # Code quality ----------------------------------------------------------------
-format:
-    uv run ruff check --fix .
-    uv run ruff format .
+format *paths=".":
+    uv run --frozen ruff check --fix {{ paths }}
+    uv run --frozen ruff format {{ paths }}
 
-check-types:
-    uv run ty check src
+check-types *paths=".":
+    uv run --frozen ty check {{ paths }}
 
-check-complexity:
-    uv run complexipy src
+check-complexity *paths=".":
+    uv run --frozen complexipy {{ paths }}
 
 # Test and run ----------------------------------------------------------------
 test target="":
-    uv run pytest --cov --cov-fail-under=90 {{ target }}
+    uv run --frozen pytest --cov --cov-fail-under=90 {{ target }}
 
 run file:
-    uv run --env-file .env {{ file }}
+    uv run --frozen --env-file .env {{ file }}
 
 # Project specific commands ---------------------------------------------------
 ipython:
-    uv run ipython
+    uv run --frozen ipython
 
 validate model="":
-    uv run --env-file .env example.py {{ model }}
-
-validate-all:
-    uv run --env-file .env validate_all.py
+    uv run --frozen --env-file .env example.py {{ model }}

@@ -1,0 +1,3 @@
+- `justfile` is the source of curated development commands
+- `README.md` is the source of general project context, guidelines and structure. Be mindful of keeping it up to date.
+- Commit **only** when indicated by the user, use **conventional commits** whenever doing it

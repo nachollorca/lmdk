@@ -23,6 +23,7 @@ What it does **NOT** offer:
 
 If you are looking for a more constrained but out-of-the-box agent interface, I'd recommend [pydantic-ai](https://ai.pydantic.dev) or [haystack-ai](https://docs.haystack.deepset.ai/docs/generators).
 If you are looking to keep granular control but extend on tools or multimodality, I'd recommend [litellm](https://docs.litellm.ai/docs/) or leveraging the OpenAI-compatible endpoints that providers normally set up.
+The closest to the "less intrusive path to unified LM calling" idea in `lmdk` is [chatlas](https://github.com/posit-dev/chatlas), but their main public interface is stateful (versus the full stateless design of `lmdk`).
 If you want a unified a token for all providers and are willing to give away telemetry data, check Gateways like [openrouter](https://openrouter.ai).
 
 ## Installation
@@ -294,7 +295,7 @@ src/lmdk/
 
 ### Tooling
 We use `just` for development tasks. Use:
-- `just sync`: Updates lockfile and syncs environment.
+- `just install`: Sync environment from the lockfile.
 - `just format`: Lints and formats with `ruff`.
 - `just check-types`: Static analysis with `ty`.
 - `just check-complexity`: Cyclomatic complexity checks with `complexipy`.
