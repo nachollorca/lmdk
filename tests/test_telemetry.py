@@ -4,10 +4,13 @@ import importlib
 import json
 
 import pytest
+from conftest import FakeProvider
 from pydantic import BaseModel
 
 from lmdk.core import complete
 from lmdk.datatypes import CompletionRequest, CompletionResponse, RawResponse, UserMessage
+from lmdk.providers.mistral import MistralProvider
+from lmdk.providers.openai import OpenaiProvider
 from lmdk.telemetry import traced_completion
 
 
@@ -76,7 +79,9 @@ def test_telemetry_off_does_not_import_opentelemetry(monkeypatch):
     monkeypatch.delenv("LMDK_TELEMETRY", raising=False)
     monkeypatch.setattr(importlib, "import_module", fail_on_import)
 
-    with traced_completion("fake", "model", _request(), fallback_index=0) as telemetry:
+    with traced_completion(
+        FakeProvider, "fake", "model", _request(), fallback_index=0
+    ) as telemetry:
         telemetry.record_response(CompletionResponse(content="ok", input_tokens=1, output_tokens=2))
 
     assert calls == []
@@ -91,7 +96,9 @@ def test_enabled_telemetry_gracefully_noops_when_opentelemetry_is_missing(monkey
     monkeypatch.setenv("LMDK_TELEMETRY", "metadata")
     monkeypatch.setattr(importlib, "import_module", fail_for_otel)
 
-    with traced_completion("fake", "model", _request(), fallback_index=0) as telemetry:
+    with traced_completion(
+        FakeProvider, "fake", "model", _request(), fallback_index=0
+    ) as telemetry:
         telemetry.record_response(CompletionResponse(content="ok", input_tokens=1, output_tokens=2))
 
 
@@ -126,6 +133,8 @@ def test_metadata_mode_records_span_attributes_and_metrics(
     assert "gen_ai.input.messages" not in span.attributes
     assert "gen_ai.system_instructions" not in span.attributes
     assert "gen_ai.output.messages" not in span.attributes
+    # thinking_effort defaults to "none" -> fake provider sends no reasoning control
+    assert span.attributes["gen_ai.request.reasoning.level"] == "none"
 
     duration_points = _metric_points(metric_reader, "gen_ai.client.operation.duration")
     assert len(duration_points) == 1
@@ -143,11 +152,94 @@ def test_metadata_mode_records_span_attributes_and_metrics(
     }
 
 
+def test_metadata_mode_records_provider_reasoning_level(monkeypatch, otel_setup):
+    span_exporter, _ = otel_setup
+    monkeypatch.setenv("LMDK_TELEMETRY", "metadata")
+
+    with traced_completion(OpenaiProvider, "openai", "gpt-5", _request(), fallback_index=0):
+        pass
+
+    span = span_exporter.get_finished_spans()[0]
+    assert span.attributes["gen_ai.request.reasoning.level"] == "none"
+
+    span_exporter.clear()
+    request = CompletionRequest(
+        model_id="gpt-5",
+        prompt=[UserMessage(content="hi")],
+        system_instruction=None,
+        output_schema=None,
+        generation_kwargs={},
+        thinking_effort="medium",
+    )
+    with traced_completion(OpenaiProvider, "openai", "gpt-5", request, fallback_index=0):
+        pass
+
+    span = span_exporter.get_finished_spans()[0]
+    assert span.attributes["gen_ai.request.reasoning.level"] == "medium"
+
+
+def test_metadata_mode_records_mistral_reasoning_level(monkeypatch, otel_setup):
+    span_exporter, _ = otel_setup
+    monkeypatch.setenv("LMDK_TELEMETRY", "metadata")
+
+    request = CompletionRequest(
+        model_id="mistral-large",
+        prompt=[UserMessage(content="hi")],
+        system_instruction=None,
+        output_schema=None,
+        generation_kwargs={},
+        thinking_effort="low",
+    )
+    with traced_completion(MistralProvider, "mistral", "mistral-large", request, fallback_index=0):
+        pass
+
+    span = span_exporter.get_finished_spans()[0]
+    assert span.attributes["gen_ai.request.reasoning.level"] == "high"
+
+
+def test_metadata_mode_records_thinking_tokens_on_span(monkeypatch, otel_setup):
+    span_exporter, _ = otel_setup
+    monkeypatch.setenv("LMDK_TELEMETRY", "metadata")
+
+    with traced_completion(
+        FakeProvider, "fake", "model", _request(), fallback_index=0
+    ) as telemetry:
+        telemetry.record_response(
+            CompletionResponse(
+                content="ok",
+                input_tokens=10,
+                output_tokens=50,
+                thinking="trace",
+                thinking_tokens=40,
+            )
+        )
+
+    span = span_exporter.get_finished_spans()[0]
+    assert span.attributes["gen_ai.usage.input_tokens"] == 10
+    assert span.attributes["gen_ai.usage.output_tokens"] == 50
+    assert span.attributes["gen_ai.usage.reasoning.output_tokens"] == 40
+
+
+def test_metadata_mode_omits_reasoning_tokens_when_zero(monkeypatch, otel_setup):
+    span_exporter, _ = otel_setup
+    monkeypatch.setenv("LMDK_TELEMETRY", "metadata")
+
+    with traced_completion(
+        FakeProvider, "fake", "model", _request(), fallback_index=0
+    ) as telemetry:
+        telemetry.record_response(CompletionResponse(content="ok", input_tokens=1, output_tokens=2))
+
+    span = span_exporter.get_finished_spans()[0]
+    assert "gen_ai.usage.reasoning.output_tokens" not in span.attributes
+
+
 def test_content_mode_records_prompt_system_instruction_and_response(monkeypatch, otel_setup):
     span_exporter, _ = otel_setup
     monkeypatch.setenv("LMDK_TELEMETRY", "content")
 
-    with traced_completion("fake", "model", _request(), fallback_index=2) as telemetry:
+    with traced_completion(
+        FakeProvider, "fake", "model", _request(), fallback_index=2
+    ) as telemetry:
         telemetry.record_response(CompletionResponse(content="ok", input_tokens=1, output_tokens=2))
 
     span = span_exporter.get_finished_spans()[0]
@@ -179,7 +271,9 @@ def test_content_mode_records_structured_output_with_single_field_unwrapping(
     span_exporter, _ = otel_setup
     monkeypatch.setenv("LMDK_TELEMETRY", "content")
 
-    with traced_completion("fake", "model", _request(), fallback_index=0) as telemetry:
+    with traced_completion(
+        FakeProvider, "fake", "model", _request(), fallback_index=0
+    ) as telemetry:
         telemetry.record_response(
             CompletionResponse(
                 content='{"summary": "hi"}',
@@ -199,7 +293,9 @@ def test_content_mode_records_structured_output_with_multi_field_model(monkeypat
     span_exporter, _ = otel_setup
     monkeypatch.setenv("LMDK_TELEMETRY", "content")
 
-    with traced_completion("fake", "model", _request(), fallback_index=0) as telemetry:
+    with traced_completion(
+        FakeProvider, "fake", "model", _request(), fallback_index=0
+    ) as telemetry:
         telemetry.record_response(
             CompletionResponse(
                 content='{"name": "Ada", "age": 36}',

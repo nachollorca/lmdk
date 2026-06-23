@@ -11,6 +11,9 @@ ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MAX_TOKENS = 4096
 _SAMPLING_RESTRICTED_KWARGS = {"temperature", "top_p", "top_k"}
 
+# Sampling controls Anthropic rejects when ``thinking`` is enabled.
+_THINKING_INCOMPATIBLE_KWARGS = ("temperature", "top_p", "top_k")
+
 
 def _prepare_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """Prepare a Pydantic JSON schema for the Anthropic API.
@@ -85,6 +88,19 @@ class AnthropicProvider(Provider):
         generation_kwargs = cls._normalize_generation_kwargs(request)
         max_tokens = generation_kwargs.pop("max_tokens", DEFAULT_MAX_TOKENS)
 
+        thinking_block: dict | None = None
+        effort: str | None = None
+        if request.thinking_effort != "none" and "thinking" not in generation_kwargs:
+            # Anthropic rejects custom temperature/top_p/top_k when thinking
+            # is enabled. Drop them so the request goes through cleanly.
+            for key in _THINKING_INCOMPATIBLE_KWARGS:
+                generation_kwargs.pop(key, None)
+            # Adaptive thinking lets Claude decide when and how much to think;
+            # ``effort`` (low/medium/high) is soft guidance and ``max_tokens``
+            # remains the hard cap on thinking + response tokens.
+            thinking_block = {"type": "adaptive"}
+            effort = request.thinking_effort
+
         payload: dict = {
             "model": request.model_id,
             "messages": cls._build_messages(request),
@@ -92,21 +108,33 @@ class AnthropicProvider(Provider):
             **generation_kwargs,
         }
 
+        if thinking_block is not None:
+            payload["thinking"] = thinking_block
+
         if request.system_instruction:
             payload["system"] = request.system_instruction
 
+        output_config: dict = {}
+        if effort is not None:
+            output_config["effort"] = effort
         if request.output_schema and not stream:
-            payload["output_config"] = {
-                "format": {
-                    "type": "json_schema",
-                    "schema": _prepare_schema(request.output_schema.model_json_schema()),
-                },
+            output_config["format"] = {
+                "type": "json_schema",
+                "schema": _prepare_schema(request.output_schema.model_json_schema()),
             }
+        if output_config:
+            payload["output_config"] = output_config
 
         if stream:
             payload["stream"] = True
 
         return payload
+
+    @classmethod
+    def request_reasoning_level(cls, request: CompletionRequest) -> str:
+        """Return ``output_config.effort`` from the outbound Anthropic payload."""
+        effort = cls._build_payload(request, stream=False).get("output_config", {}).get("effort")
+        return effort if effort is not None else "none"
 
     @classmethod
     def _extract_text(cls, body: dict) -> str:
@@ -122,6 +150,16 @@ class AnthropicProvider(Provider):
         return "".join(parts)
 
     @classmethod
+    def _extract_thinking(cls, body: dict) -> str | None:
+        """Extract thinking content from ``thinking`` blocks in the response."""
+        parts = []
+        for block in body.get("content", []):
+            if block.get("type") == "thinking":
+                parts.append(block["thinking"])
+        joined = "".join(parts)
+        return joined if joined else None
+
+    @classmethod
     def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
         response = cls._make_request(
             ANTHROPIC_API_URL,
@@ -130,10 +168,13 @@ class AnthropicProvider(Provider):
         )
 
         body = response.json()
+        usage = body.get("usage", {})
         return RawResponse(
             content=cls._extract_text(body),
-            input_tokens=body["usage"]["input_tokens"],
-            output_tokens=body["usage"]["output_tokens"],
+            input_tokens=usage.get("input_tokens", 0),
+            output_tokens=usage.get("output_tokens", 0),
+            thinking=cls._extract_thinking(body),
+            thinking_tokens=usage.get("output_tokens_details", {}).get("thinking_tokens", 0),
         )
 
     @classmethod

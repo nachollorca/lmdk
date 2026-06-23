@@ -1,10 +1,18 @@
 """Tests for lmdk.provider — Provider ABC and load_provider."""
 
+from collections.abc import Sequence
 from unittest.mock import MagicMock, patch
 
 import pytest
+from conftest import make_completion_request
+from pydantic import BaseModel
 
-from lmdk.datatypes import CompletionRequest, CompletionResponse, UserMessage
+from lmdk.datatypes import (
+    CompletionRequest,
+    CompletionResponse,
+    Message,
+    ThinkingEffort,
+)
 from lmdk.errors import AuthenticationError, InternalServerError, RateLimitError
 from lmdk.provider import Provider, RawResponse, load_provider
 
@@ -13,16 +21,23 @@ from lmdk.provider import Provider, RawResponse, load_provider
 # ---------------------------------------------------------------------------
 
 
-def _make_request(**overrides) -> CompletionRequest:
-    defaults = {
-        "model_id": "test-model",
-        "prompt": [UserMessage(content="hi")],
-        "system_instruction": None,
-        "output_schema": None,
-        "generation_kwargs": {},
-    }
-    defaults.update(overrides)
-    return CompletionRequest(**defaults)
+def _make_request(
+    *,
+    model_id: str = "test-model",
+    prompt: Sequence[Message] | None = None,
+    system_instruction: str | None = None,
+    output_schema: type[BaseModel] | None = None,
+    generation_kwargs: dict | None = None,
+    thinking_effort: ThinkingEffort = "none",
+) -> CompletionRequest:
+    return make_completion_request(
+        model_id=model_id,
+        prompt=prompt,
+        system_instruction=system_instruction,
+        output_schema=output_schema,
+        generation_kwargs=generation_kwargs,
+        thinking_effort=thinking_effort,
+    )
 
 
 def _mock_http_response(status_code: int, reason: str = "Error", text: str = "") -> MagicMock:
@@ -109,6 +124,20 @@ class TestProviderComplete:
 
         result = fake_provider.complete(request=_make_request(), stream=False)
         assert result.content == "custom"
+
+    def test_propagates_thinking_fields_from_raw_response(self, fake_provider):
+        custom = RawResponse(
+            content="answer",
+            input_tokens=10,
+            output_tokens=50,
+            thinking="trace",
+            thinking_tokens=40,
+        )
+        fake_provider.response_fn = lambda req, creds: custom
+
+        result = fake_provider.complete(request=_make_request(), stream=False)
+        assert result.thinking == "trace"
+        assert result.thinking_tokens == 40
 
     def test_custom_stream_fn(self, fake_provider):
         fake_provider.stream_fn = lambda req, creds: iter(["a", "b", "c"])

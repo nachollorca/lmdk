@@ -11,6 +11,7 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 from lmdk.datatypes import CompletionRequest, CompletionResponse
+from lmdk.provider import Provider
 
 # Targeted OpenTelemetry GenAI Semantic Conventions version: v1.41.0.
 # TODO: Revisit the targeted semconv version on each lmdk release.
@@ -59,6 +60,11 @@ class _CompletionTelemetry:
                 )
         self._span.set_attribute("gen_ai.usage.input_tokens", response.input_tokens)
         self._span.set_attribute("gen_ai.usage.output_tokens", response.output_tokens)
+        if response.thinking_tokens:
+            self._span.set_attribute(
+                "gen_ai.usage.reasoning.output_tokens",
+                response.thinking_tokens,
+            )
         if self._capture_content:
             self._span.set_attribute(
                 "gen_ai.output.messages",
@@ -80,6 +86,7 @@ class _CompletionTelemetry:
 
 @contextmanager
 def traced_completion(
+    provider: type[Provider],
     provider_name: str,
     model_id: str,
     request: CompletionRequest,
@@ -94,7 +101,9 @@ def traced_completion(
 
     trace, metrics = otel
     model_name, location = _split_model_and_location(model_id)
-    span_attributes = _span_attributes(provider_name, model_name, location, request, fallback_index)
+    span_attributes = _span_attributes(
+        provider, provider_name, model_name, location, request, fallback_index
+    )
     if mode == "content":
         span_attributes.update(_content_attributes(request))
 
@@ -172,6 +181,7 @@ def _split_model_and_location(model_id: str) -> tuple[str, str | None]:
 
 
 def _span_attributes(
+    provider: type[Provider],
     provider_name: str,
     model_name: str,
     location: str | None,
@@ -190,6 +200,8 @@ def _span_attributes(
         value = request.generation_kwargs.get(kwarg_name)
         if value is not None:
             attributes[attribute_name] = value
+
+    attributes["gen_ai.request.reasoning.level"] = provider.request_reasoning_level(request)
 
     return attributes
 

@@ -1,7 +1,7 @@
 """Contains the main logic to call language model APIs."""
 
 from collections.abc import Iterator, Sequence
-from typing import Any, Literal, overload
+from typing import Any, Literal, get_args, overload
 
 from pydantic import BaseModel
 
@@ -11,6 +11,7 @@ from lmdk.datatypes import (
     CompletionRequest,
     CompletionResponse,
     Message,
+    ThinkingEffort,
     UserMessage,
 )
 from lmdk.errors import AllModelsFailedError
@@ -29,6 +30,7 @@ def complete(
     *,
     stream: Literal[True],
     generation_kwargs: dict | None = None,
+    thinking_effort: ThinkingEffort = "none",
 ) -> Iterator[str]: ...  # stream=True  -> yields tokens one by one
 
 
@@ -40,6 +42,7 @@ def complete(
     output_schema: type[BaseModel] | None = None,
     stream: Literal[False] = False,
     generation_kwargs: dict | None = None,
+    thinking_effort: ThinkingEffort = "none",
 ) -> CompletionResponse: ...  # stream=False (default) -> complete response
 
 
@@ -51,6 +54,7 @@ def complete(
     output_schema: type[BaseModel] | None = None,
     stream: bool = False,
     generation_kwargs: dict | None = None,
+    thinking_effort: ThinkingEffort = "none",
 ) -> CompletionResponse | Iterator[str]:
     """Generate a response from a language model.
 
@@ -66,6 +70,15 @@ def complete(
         generation_kwargs: Additional generation parameters forwarded to the
             provider (e.g. ``temperature``, ``max_tokens``).
             Defaults to ``{"temperature": 0}``.
+        thinking_effort: Cross-provider reasoning/thinking control. ``"none"``
+            (default) disables thinking where supported; ``"low"``/``"medium"``
+            /``"high"`` map to the provider's native knob (OpenAI
+            ``reasoning.effort``, Vertex ``thinkingConfig.thinkingLevel``,
+            Anthropic ``thinking``, Mistral ``reasoning_effort``). On Vertex
+            (Gemini 3), thinking cannot be fully disabled; ``"none"`` maps to
+            ``thinkingLevel: "minimal"`` (``"low"`` on Pro models).
+            ``generation_kwargs`` overrides the mapped value for power-user
+            escape hatches.
 
     Returns:
         A ``CompletionResponse`` with the generated content and metadata, or an
@@ -77,6 +90,7 @@ def complete(
     # early stop
     if output_schema and stream:
         raise ValueError("Only `stream` or `output_schema` can be set, not both.")
+    _validate_thinking_effort(thinking_effort)
 
     # set defaults and normalize overloaded params
     models = [model] if isinstance(model, str) else model
@@ -94,6 +108,7 @@ def complete(
                 output_schema=output_schema,
                 stream=stream,
                 generation_kwargs=generation_kwargs,
+                thinking_effort=thinking_effort,
                 fallback_index=i,
             )
         except Exception as exc:
@@ -103,6 +118,15 @@ def complete(
     if len(errors) == 1:
         raise next(iter(errors.values()))
     raise AllModelsFailedError(errors)
+
+
+def _validate_thinking_effort(thinking_effort: ThinkingEffort) -> None:
+    valid = get_args(ThinkingEffort)
+    if thinking_effort not in valid:
+        raise ValueError(
+            f"Invalid thinking_effort {thinking_effort!r}; "
+            f"expected one of {', '.join(map(repr, valid))}."
+        )
 
 
 def _normalize_prompt(prompt: str | Sequence[Message]) -> Sequence[Message]:
@@ -125,6 +149,7 @@ def _complete_model(
     output_schema: type[BaseModel] | None,
     stream: bool,
     generation_kwargs: dict,
+    thinking_effort: ThinkingEffort,
     fallback_index: int,
 ) -> CompletionResponse | Iterator[str]:
     provider_name, model_id = model.split(":", maxsplit=1)
@@ -135,13 +160,14 @@ def _complete_model(
         system_instruction=system_instruction,
         output_schema=output_schema,
         generation_kwargs=generation_kwargs,
+        thinking_effort=thinking_effort,
     )
 
     if stream:
         return provider.complete(request=request, stream=True)
 
     with completion_lifecycle(
-        provider_name, model_id, request, fallback_index=fallback_index
+        provider, provider_name, model_id, request, fallback_index=fallback_index
     ) as record:
         response = provider.complete(request=request, stream=False)
         if isinstance(response, CompletionResponse):
@@ -155,6 +181,7 @@ def complete_batch(
     system_instruction: str | None = None,
     output_schema: type[BaseModel] | None = None,
     generation_kwargs: dict[str, Any] | None = None,
+    thinking_effort: ThinkingEffort = "none",
     max_workers: int = 10,
 ) -> CompletionBatch:
     """Generate responses for multiple conversations in parallel.
@@ -171,6 +198,8 @@ def complete_batch(
         output_schema: Optional Pydantic model class for structured output.
         generation_kwargs: Additional generation parameters forwarded to the
             provider (e.g. ``temperature``, ``max_tokens``).
+        thinking_effort: Cross-provider reasoning/thinking control. See
+            :func:`complete` for details.
         max_workers: Maximum number of concurrent threads.
 
     Returns:
@@ -182,12 +211,14 @@ def complete_batch(
         ``output_tokens``, ``latency``, ``parsed``, ``output``) computed over
         the successful responses.
     """
+    _validate_thinking_effort(thinking_effort)
     shared_kwargs: dict[str, Any] = {
         "model": model,
         "system_instruction": system_instruction,
         "output_schema": output_schema,
         "stream": False,
         "generation_kwargs": generation_kwargs,
+        "thinking_effort": thinking_effort,
     }
     params_list = [{**shared_kwargs, "prompt": prompt} for prompt in prompt_list]
 

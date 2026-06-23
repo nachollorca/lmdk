@@ -69,6 +69,9 @@ class OpenaiProvider(Provider):
         if request.system_instruction:
             payload["instructions"] = request.system_instruction
 
+        if request.thinking_effort != "none":
+            payload.setdefault("reasoning", {"effort": request.thinking_effort})
+
         if request.output_schema and not stream:
             payload["text"] = {
                 "format": {
@@ -80,6 +83,12 @@ class OpenaiProvider(Provider):
             }
 
         return payload
+
+    @classmethod
+    def request_reasoning_level(cls, request: CompletionRequest) -> str:
+        """Return ``reasoning.effort`` from the outbound OpenAI payload."""
+        effort = cls._build_payload(request, stream=False).get("reasoning", {}).get("effort")
+        return effort if effort is not None else "none"
 
     @classmethod
     def _extract_text(cls, body: dict) -> str:
@@ -95,6 +104,22 @@ class OpenaiProvider(Provider):
         return "".join(parts)
 
     @classmethod
+    def _extract_thinking(cls, body: dict) -> str | None:
+        """Extract reasoning text from ``reasoning`` items in the response output."""
+        parts: list[str] = []
+        for item in body.get("output", []):
+            if item.get("type") != "reasoning":
+                continue
+            for entry in item.get("summary", []):
+                if entry.get("type") == "summary_text":
+                    parts.append(entry.get("text", ""))
+            for entry in item.get("content", []):
+                if entry.get("type") == "reasoning_text":
+                    parts.append(entry.get("text", ""))
+        joined = "".join(parts)
+        return joined if joined else None
+
+    @classmethod
     def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
         response = cls._make_request(
             OPENAI_API_URL,
@@ -104,10 +129,13 @@ class OpenaiProvider(Provider):
 
         body = response.json()
         usage = body.get("usage", {})
+        output_details = usage.get("output_tokens_details", {})
         return RawResponse(
             content=cls._extract_text(body),
             input_tokens=usage.get("input_tokens", 0),
             output_tokens=usage.get("output_tokens", 0),
+            thinking=cls._extract_thinking(body),
+            thinking_tokens=output_details.get("reasoning_tokens", 0),
         )
 
     @classmethod

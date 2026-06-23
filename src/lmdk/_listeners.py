@@ -21,11 +21,13 @@ from contextlib import contextmanager
 
 from lmdk.datatypes import CompletionRequest, CompletionResponse
 from lmdk.observe import _current_observer
+from lmdk.provider import Provider
 from lmdk.telemetry import traced_completion
 
 
 @contextmanager
 def completion_lifecycle(
+    provider: type[Provider],
     provider_name: str,
     model_id: str,
     request: CompletionRequest,
@@ -39,7 +41,7 @@ def completion_lifecycle(
     them.
     """
     observer = _current_observer()
-    with traced_completion(provider_name, model_id, request, fallback_index) as telemetry:
+    with traced_completion(provider, provider_name, model_id, request, fallback_index) as telemetry:
 
         def record(response: CompletionResponse) -> None:
             telemetry.record_response(response)

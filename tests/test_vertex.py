@@ -1,11 +1,13 @@
 """Tests for lmdk.providers.vertex — VertexProvider."""
 
 import json
+from collections.abc import Sequence
 from unittest.mock import MagicMock, patch
 
+from conftest import make_completion_request
 from pydantic import BaseModel
 
-from lmdk.datatypes import AssistantMessage, CompletionRequest, UserMessage
+from lmdk.datatypes import AssistantMessage, CompletionRequest, Message, ThinkingEffort, UserMessage
 from lmdk.provider import RawResponse
 from lmdk.providers.vertex import DEFAULT_LOCATION, VertexProvider
 
@@ -16,35 +18,46 @@ from lmdk.providers.vertex import DEFAULT_LOCATION, VertexProvider
 PROJECT_ID = "my-gcp-project"
 
 
-def _make_request(**overrides) -> CompletionRequest:
-    defaults = {
-        "model_id": "gemini-2.5-flash",
-        "prompt": [UserMessage(content="hi")],
-        "system_instruction": None,
-        "output_schema": None,
-        "generation_kwargs": {},
-    }
-    defaults.update(overrides)
-    return CompletionRequest(**defaults)
+def _make_request(
+    *,
+    model_id: str = "gemini-2.5-flash",
+    prompt: Sequence[Message] | None = None,
+    system_instruction: str | None = None,
+    output_schema: type[BaseModel] | None = None,
+    generation_kwargs: dict | None = None,
+    thinking_effort: ThinkingEffort = "none",
+) -> CompletionRequest:
+    return make_completion_request(
+        model_id=model_id,
+        prompt=prompt,
+        system_instruction=system_instruction,
+        output_schema=output_schema,
+        generation_kwargs=generation_kwargs,
+        thinking_effort=thinking_effort,
+    )
 
 
 def _mock_vertex_response(
     content: str = "hello",
     prompt_tokens: int = 10,
     candidates_tokens: int = 5,
+    thoughts_tokens: int = 0,
     parts: list[dict] | None = None,
 ):
     """Build a mock requests.Response that mimics a Vertex generateContent response."""
     if parts is None:
         parts = [{"text": content}]
+    usage_metadata: dict = {
+        "promptTokenCount": prompt_tokens,
+        "candidatesTokenCount": candidates_tokens,
+    }
+    if thoughts_tokens:
+        usage_metadata["thoughtsTokenCount"] = thoughts_tokens
     resp = MagicMock()
     resp.status_code = 200
     resp.json.return_value = {
         "candidates": [{"content": {"parts": parts}}],
-        "usageMetadata": {
-            "promptTokenCount": prompt_tokens,
-            "candidatesTokenCount": candidates_tokens,
-        },
+        "usageMetadata": usage_metadata,
     }
     return resp
 
@@ -289,17 +302,45 @@ class TestBuildPayload:
         payload = VertexProvider._build_payload(request)
         assert payload["systemInstruction"] == {"parts": [{"text": "Be a pirate."}]}
 
-    def test_thinking_disabled_by_default(self):
+    def test_thinking_omitted_by_default_for_gemini_2_5(self):
         request = _make_request()
         payload = VertexProvider._build_payload(request)
-        thinking = payload["generationConfig"]["thinkingConfig"]
-        assert thinking == {"thinkingBudget": 0}
+        assert "thinkingConfig" not in payload["generationConfig"]
 
-    def test_thinking_config_can_be_overridden(self):
-        request = _make_request(generation_kwargs={"thinkingConfig": {"thinkingBudget": 1024}})
+    def test_thinking_effort_none_maps_to_minimal_for_gemini_3_flash(self):
+        request = _make_request(model_id="gemini-3.5-flash")
         payload = VertexProvider._build_payload(request)
-        thinking = payload["generationConfig"]["thinkingConfig"]
-        assert thinking == {"thinkingBudget": 1024}
+        assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
+
+    def test_thinking_effort_none_maps_to_minimal_for_gemini_3_flash_lite(self):
+        request = _make_request(model_id="gemini-3.1-flash-lite")
+        payload = VertexProvider._build_payload(request)
+        assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
+
+    def test_thinking_effort_none_maps_to_low_for_gemini_3_pro(self):
+        request = _make_request(model_id="gemini-3.1-pro-preview")
+        payload = VertexProvider._build_payload(request)
+        assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
+
+    def test_thinking_config_can_be_set_via_generation_kwargs(self):
+        request = _make_request(generation_kwargs={"thinkingConfig": {"thinkingLevel": "low"}})
+        payload = VertexProvider._build_payload(request)
+        assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
+
+    def test_thinking_effort_maps_to_thinking_level(self):
+        for effort in ("low", "medium", "high"):
+            request = _make_request(model_id="gemini-3.5-flash", thinking_effort=effort)
+            payload = VertexProvider._build_payload(request)
+            assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": effort}
+
+    def test_explicit_thinking_config_overrides_thinking_effort(self):
+        request = _make_request(
+            model_id="gemini-3.5-flash",
+            thinking_effort="high",
+            generation_kwargs={"thinkingConfig": {"thinkingLevel": "low"}},
+        )
+        payload = VertexProvider._build_payload(request)
+        assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
 
 
 # ---------------------------------------------------------------------------
@@ -338,6 +379,52 @@ class TestExtractText:
     def test_returns_empty_string_when_no_parts(self):
         body = {"candidates": [{"content": {}}]}
         assert VertexProvider._extract_text(body) == ""
+
+
+# ---------------------------------------------------------------------------
+# _extract_thinking
+# ---------------------------------------------------------------------------
+
+
+class TestExtractThinking:
+    def test_extracts_thought_parts(self):
+        body = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "Let me think...", "thought": True},
+                            {"text": "Answer"},
+                        ]
+                    }
+                }
+            ]
+        }
+        assert VertexProvider._extract_thinking(body) == "Let me think..."
+
+    def test_concatenates_multiple_thought_parts(self):
+        body = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "step 1", "thought": True},
+                            {"text": " step 2", "thought": True},
+                            {"text": "done"},
+                        ]
+                    }
+                }
+            ]
+        }
+        assert VertexProvider._extract_thinking(body) == "step 1 step 2"
+
+    def test_returns_none_when_no_thought_parts(self):
+        body = {"candidates": [{"content": {"parts": [{"text": "Hello!"}]}}]}
+        assert VertexProvider._extract_thinking(body) is None
+
+    def test_returns_none_when_no_content(self):
+        body = {"candidates": [{}]}
+        assert VertexProvider._extract_thinking(body) is None
 
 
 # ---------------------------------------------------------------------------
@@ -444,6 +531,18 @@ class TestSendRequest:
 
         assert result.content == "The answer is 42."
 
+    def test_populates_thinking_and_thinking_tokens(self):
+        parts = [
+            {"text": "Let me think...", "thought": True},
+            {"text": "The answer is 42."},
+        ]
+        mock_resp = _mock_vertex_response(parts=parts, thoughts_tokens=40)
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            result = VertexProvider._send_request(_make_request(), credentials=CREDENTIALS)
+
+        assert result.thinking == "Let me think..."
+        assert result.thinking_tokens == 40
+
     def test_missing_usage_metadata_defaults_to_zero(self):
         resp = MagicMock()
         resp.status_code = 200
@@ -455,6 +554,8 @@ class TestSendRequest:
 
         assert result.input_tokens == 0
         assert result.output_tokens == 0
+        assert result.thinking is None
+        assert result.thinking_tokens == 0
 
 
 # ---------------------------------------------------------------------------

@@ -11,6 +11,7 @@ from lmdk.datatypes import (
     CompletionRequest,
     CompletionResponse,
     Message,
+    RawResponse,
     UserMessage,
 )
 
@@ -79,6 +80,28 @@ class TestCompletionRequest:
         assert len(req.prompt) == 3
         assert req.system_instruction == "Be helpful."
         assert req.generation_kwargs == {"temperature": 0.5}
+        assert req.thinking_effort == "none"
+
+    def test_thinking_effort_defaults_to_none(self, sample_messages):
+        req = CompletionRequest(
+            model_id="m",
+            prompt=sample_messages,
+            system_instruction=None,
+            output_schema=None,
+            generation_kwargs={},
+        )
+        assert req.thinking_effort == "none"
+
+    def test_thinking_effort_can_be_set(self, sample_messages):
+        req = CompletionRequest(
+            model_id="m",
+            prompt=sample_messages,
+            system_instruction=None,
+            output_schema=None,
+            generation_kwargs={},
+            thinking_effort="high",
+        )
+        assert req.thinking_effort == "high"
 
     def test_frozen(self, sample_messages):
         req = CompletionRequest(
@@ -90,6 +113,29 @@ class TestCompletionRequest:
         )
         with pytest.raises(FrozenInstanceError):
             req.model_id = "other"  # ty: ignore[invalid-assignment]
+
+
+# ---------------------------------------------------------------------------
+# RawResponse
+# ---------------------------------------------------------------------------
+
+
+class TestRawResponse:
+    def test_thinking_defaults(self):
+        raw = RawResponse(content="hi", input_tokens=1, output_tokens=2)
+        assert raw.thinking is None
+        assert raw.thinking_tokens == 0
+
+    def test_thinking_can_be_set(self):
+        raw = RawResponse(
+            content="answer",
+            input_tokens=10,
+            output_tokens=50,
+            thinking="step 1...",
+            thinking_tokens=40,
+        )
+        assert raw.thinking == "step 1..."
+        assert raw.thinking_tokens == 40
 
 
 # ---------------------------------------------------------------------------
@@ -146,10 +192,25 @@ class ListField(BaseModel):
     items: list[str]
 
 
-def _resp(content="x", parsed=None, **kw):
-    defaults = {"input_tokens": 10, "output_tokens": 5, "latency": 0.1}
-    defaults.update(kw)
-    return CompletionResponse(content=content, parsed=parsed, **defaults)
+def _resp(
+    content: str = "x",
+    parsed=None,
+    *,
+    input_tokens: int = 10,
+    output_tokens: int = 5,
+    thinking: str | None = None,
+    thinking_tokens: int = 0,
+    latency: float = 0.1,
+) -> CompletionResponse:
+    return CompletionResponse(
+        content=content,
+        parsed=parsed,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        thinking=thinking,
+        thinking_tokens=thinking_tokens,
+        latency=latency,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -184,12 +245,13 @@ class TestCompletionBatch:
     def test_aggregates_tokens(self):
         batch = CompletionBatch(
             results=[
-                _resp(input_tokens=10, output_tokens=5, latency=0.1),
-                _resp(input_tokens=20, output_tokens=15, latency=0.2),
+                _resp(input_tokens=10, output_tokens=5, thinking_tokens=2, latency=0.1),
+                _resp(input_tokens=20, output_tokens=15, thinking_tokens=3, latency=0.2),
             ]
         )
         assert batch.input_tokens == 30
         assert batch.output_tokens == 20
+        assert batch.thinking_tokens == 5
 
     def test_latency_is_max(self):
         batch = CompletionBatch(
@@ -218,6 +280,7 @@ class TestCompletionBatch:
         batch = CompletionBatch(results=[])
         assert batch.input_tokens == 0
         assert batch.output_tokens == 0
+        assert batch.thinking_tokens == 0
         assert batch.latency == 0.0
         assert batch.parsed == []
 

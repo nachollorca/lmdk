@@ -4,6 +4,7 @@ What it offers:
 - **Simplest interface to call different Language Model APIs**
 - Minimal dependencies: HTTP requests only, no third party packages
 - Streaming
+- Thinking / reasoning efforts
 - Comfy structured outputs via Pydantic models, **only if the provider / model supports it natively**
 - Parallel completions
 - Unified HTTP error handling
@@ -108,6 +109,28 @@ class Recipe(BaseModel):
 response = complete(model=model, prompt="How do I make cheescake?", output_schema=Recipe)
 # response.parsed will have a Recipe instance
 ```
+</details>
+
+<details>
+<summary>Reasoning / thinking</summary>
+
+`lmdk` offers 4 thinking configurations for the time-test compute of recent LLMs.
+We map them to the configs available on the provider side.
+See the documentation on each provider for more info.
+
+```python
+# "none" (default) | "low" | "medium" | "high"
+response = complete(model=model, prompt="Solve this carefully...", thinking_effort="high")
+
+# Works alongside structured output where the provider supports both:
+response = complete(
+    model=model,
+    prompt="Plan a 3-day trip to Lisbon.",
+    output_schema=Trip,
+    thinking_effort="medium",
+)
+```
+The usage of the thinking can be seen in the respective `CompletionResponse.thinking` and `CompletionResponse.thinking_tokens` fields.
 </details>
 
 <details>

@@ -55,6 +55,30 @@ class TestCompleteInputs:
 
         assert captured["kwargs"] == {"temperature": 0.7}
 
+    def test_thinking_effort_defaults_to_none(self, patch_load_provider):
+        captured = {}
+
+        def spy(request, api_key):
+            captured["effort"] = request.thinking_effort
+            return RawResponse(content="ok", input_tokens=0, output_tokens=0)
+
+        patch_load_provider.response_fn = spy
+        complete(model="fake:model", prompt="hi")
+
+        assert captured["effort"] == "none"
+
+    def test_thinking_effort_threaded_to_request(self, patch_load_provider):
+        captured = {}
+
+        def spy(request, api_key):
+            captured["effort"] = request.thinking_effort
+            return RawResponse(content="ok", input_tokens=0, output_tokens=0)
+
+        patch_load_provider.response_fn = spy
+        complete(model="fake:model", prompt="hi", thinking_effort="high")
+
+        assert captured["effort"] == "high"
+
 
 # ---------------------------------------------------------------------------
 # complete — validation
@@ -188,3 +212,20 @@ class TestCompleteBatch:
         assert isinstance(batch[2], CompletionResponse)
         assert len(batch.responses) == 2
         assert len(batch.errors) == 1
+
+    def test_thinking_effort_propagated_to_each_request(self, patch_load_provider):
+        captured = []
+
+        def spy(request, api_key):
+            captured.append(request.thinking_effort)
+            return RawResponse(content="ok", input_tokens=0, output_tokens=0)
+
+        patch_load_provider.response_fn = spy
+
+        complete_batch(
+            model="fake:model",
+            prompt_list=["a", "b"],
+            thinking_effort="medium",
+        )
+
+        assert captured == ["medium", "medium"]

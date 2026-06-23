@@ -36,6 +36,8 @@ def print_response(label: str, response: CompletionResponse) -> None:
     print(f"  .output       = {response.output!r}")
     print(f"  .input_tokens = {response.input_tokens}")
     print(f"  .output_tokens= {response.output_tokens}")
+    print(f"  .thinking      = {response.thinking!r}")
+    print(f"  .thinking_tokens= {response.thinking_tokens}")
     print(f"  .latency      = {response.latency:.3f}s")
 
 
@@ -65,7 +67,7 @@ class Person(BaseModel):
 
 class Ingredient(BaseModel):
     name: str
-    quantity: int
+    quantity: float
     unit: str = ""
 
 
@@ -221,6 +223,68 @@ def main(model: str) -> None:
     run_section(10, "Batch responses", lambda: _batch_responses(model))
     run_section(11, "Batch with structured output", lambda: _batch_with_structured_output(model))
 
+    # ── Section 12: Thinking / reasoning ──────────────────────────────────
+    # Exercises thinking_effort end-to-end: compare thinking_tokens across
+    # effort levels, optionally surface thinking text, and smoke-test
+    # combinations with structured output and streaming.
+    # Note: some providers (e.g. Mistral) return thinking text but aggregate
+    # thinking + answer into output_tokens with no separate thinking_tokens count.
+    # Local backends are backend-dependent: without server-side reasoning support
+    # (e.g. llama.cpp without thinking), all effort levels behave the same.
+    section(12, "Thinking / reasoning")
+    thinking_prompt = "What is 17 * 23? Think step by step, then give the final answer."
+
+    print("  (a) Effort sweep — compare thinking_tokens across levels")
+    for effort in ("none", "low", "medium", "high"):
+        try:
+            response = complete(
+                model=model,
+                prompt=thinking_prompt,
+                thinking_effort=effort,
+            )
+            thinking_preview = response.thinking
+            if thinking_preview and len(thinking_preview) > 80:
+                thinking_preview = thinking_preview[:80] + "..."
+            print(
+                f"    [{effort:6}] thinking_tokens={response.thinking_tokens:4}  "
+                f"output_tokens={response.output_tokens:4}  "
+                f"thinking={thinking_preview!r}  "
+                f"content={response.content!r}"
+            )
+        except Exception as e:
+            print(f"    [{effort:6}] [FAILED] {type(e).__name__}: {e}")
+
+    print("  (b) Structured output + thinking")
+    try:
+        response = complete(
+            model=model,
+            prompt="The largest city in Japan.",
+            output_schema=City,
+            thinking_effort="medium",
+        )
+        print(
+            f"    [OK] parsed={response.parsed!r}  thinking_tokens={response.thinking_tokens}  "
+            f"thinking={response.thinking!r}"
+        )
+    except Exception as e:
+        print(f"    [FAILED] {type(e).__name__}: {e}")
+
+    print("  (c) Streaming — only answer text deltas are yielded")
+    try:
+        token_iter = complete(
+            model=model,
+            prompt="Count from 1 to 5.",
+            thinking_effort="low",
+            stream=True,
+        )
+        print("    [OK] tokens: ", end="")
+        for token in token_iter:
+            print(token, end="", flush=True)
+        print()
+    except Exception as e:
+        print(f"    [FAILED] {type(e).__name__}: {e}")
+
+    # ── Done ──────────────────────────────────────────────────────────────
     print(f"\n{SEPARATOR}")
     print("  All sections executed. Check [OK] / [FAILED] above.")
     print(SEPARATOR)

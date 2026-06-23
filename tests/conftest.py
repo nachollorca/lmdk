@@ -1,16 +1,39 @@
 """Shared fixtures for lmdk tests."""
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 
 import pytest
+from pydantic import BaseModel
 
 from lmdk.datatypes import (
     AssistantMessage,
     CompletionRequest,
     Message,
+    ThinkingEffort,
     UserMessage,
 )
 from lmdk.provider import Provider, RawResponse
+
+
+def make_completion_request(
+    *,
+    model_id: str,
+    prompt: Sequence[Message] | None = None,
+    system_instruction: str | None = None,
+    output_schema: type[BaseModel] | None = None,
+    generation_kwargs: dict | None = None,
+    thinking_effort: ThinkingEffort = "none",
+) -> CompletionRequest:
+    """Build a :class:`CompletionRequest` with typed defaults for tests."""
+    return CompletionRequest(
+        model_id=model_id,
+        prompt=prompt if prompt is not None else [UserMessage(content="hi")],
+        system_instruction=system_instruction,
+        output_schema=output_schema,
+        generation_kwargs=generation_kwargs if generation_kwargs is not None else {},
+        thinking_effort=thinking_effort,
+    )
+
 
 # ---------------------------------------------------------------------------
 # FakeProvider — a concrete Provider for testing the abstract layer

@@ -98,18 +98,43 @@ class VertexProvider(Provider):
         return contents
 
     @classmethod
+    def _vertex_thinking_level(cls, request: CompletionRequest) -> str | None:
+        """Map ``thinking_effort`` to Vertex ``thinkingLevel`` for Gemini 3 models.
+
+        Gemini 3 cannot fully disable thinking. ``"none"`` maps to the practical
+        minimum: ``"minimal"`` on Flash / Flash-Lite models, ``"low"`` on Pro
+        models (which reject ``"minimal"``). Returns ``None`` for non-Gemini-3
+        models so legacy ``thinkingBudget`` behaviour is unchanged.
+        """
+        model, _ = cls._parse_model_id(request.model_id)
+        if not model.startswith("gemini-3"):
+            return None
+
+        if request.thinking_effort == "none":
+            return "low" if "pro" in model else "minimal"
+        return request.thinking_effort
+
+    @classmethod
     def _build_generation_config(cls, request: CompletionRequest) -> dict:
         """Build the ``generationConfig`` object.
 
         Translates common OpenAI-style parameter names (``max_tokens``,
         ``top_p``, …) to their Vertex AI camelCase equivalents and merges
         structured-output directives when an ``output_schema`` is present.
+
+        ``thinking_effort`` maps to ``thinkingConfig.thinkingLevel`` on Gemini 3
+        models. An explicit ``thinkingConfig`` in ``generation_kwargs``
+        overrides the mapped value.
         """
         config: dict = {}
 
         for key, value in (request.generation_kwargs or {}).items():
             mapped_key = _GENERATION_KEY_MAP.get(key, key)
             config[mapped_key] = value
+
+        thinking_level = cls._vertex_thinking_level(request)
+        if thinking_level is not None:
+            config.setdefault("thinkingConfig", {"thinkingLevel": thinking_level})
 
         if request.output_schema:
             config["responseMimeType"] = "application/json"
@@ -177,28 +202,27 @@ class VertexProvider(Provider):
 
     @classmethod
     def _build_payload(cls, request: CompletionRequest) -> dict:
-        """Assemble the full request payload for the Vertex API.
-
-        Thinking is disabled by default (``thinkingBudget: 0``) so that
-        all output tokens go to visible content, matching non-thinking
-        providers.  Users can opt in to thinking by passing
-        ``generation_kwargs={"thinkingConfig": {"thinkingBudget": N}}``.
-        """
-        generation_config = cls._build_generation_config(request)
-
-        # Allow users to override thinkingConfig via generation_kwargs;
-        # default to disabled so maxOutputTokens behaves predictably.
-        generation_config.setdefault("thinkingConfig", {"thinkingBudget": 0})
-
+        """Assemble the full request payload for the Vertex API."""
         payload: dict = {
             "contents": cls._build_contents(request),
-            "generationConfig": generation_config,
+            "generationConfig": cls._build_generation_config(request),
         }
 
         if request.system_instruction:
             payload["systemInstruction"] = {"parts": [{"text": request.system_instruction}]}
 
         return payload
+
+    @classmethod
+    def request_reasoning_level(cls, request: CompletionRequest) -> str:
+        """Return ``thinkingConfig.thinkingLevel`` from the outbound Vertex payload."""
+        level = (
+            cls._build_payload(request)
+            .get("generationConfig", {})
+            .get("thinkingConfig", {})
+            .get("thinkingLevel")
+        )
+        return level if level is not None else "none"
 
     # ── Response extraction ───────────────────────────────────────────────
 
@@ -215,6 +239,16 @@ class VertexProvider(Provider):
         parts = content.get("parts", [])
         text_parts = [p["text"] for p in parts if "text" in p and not p.get("thought")]
         return "".join(text_parts)
+
+    @classmethod
+    def _extract_thinking(cls, body: dict) -> str | None:
+        """Extract thinking summaries from ``thought`` parts in the response."""
+        candidate = body["candidates"][0]
+        content = candidate.get("content", {})
+        parts = content.get("parts", [])
+        thought_parts = [p["text"] for p in parts if "text" in p and p.get("thought")]
+        joined = "".join(thought_parts)
+        return joined if joined else None
 
     # ── Provider interface implementation ─────────────────────────────────
 
@@ -237,6 +271,8 @@ class VertexProvider(Provider):
             content=content,
             input_tokens=usage.get("promptTokenCount", 0),
             output_tokens=usage.get("candidatesTokenCount", 0),
+            thinking=cls._extract_thinking(body),
+            thinking_tokens=usage.get("thoughtsTokenCount", 0),
         )
 
     @classmethod

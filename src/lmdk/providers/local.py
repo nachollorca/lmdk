@@ -15,6 +15,12 @@ The location is mandatory -- there is no default base URL. When the location
 has no scheme, ``http://`` is assumed. Servers that gate access with a token
 may set the optional ``LOCAL_API_KEY`` environment variable, which is sent as a
 ``Bearer`` credential.
+
+Thinking / reasoning is entirely backend-dependent: whether ``thinking_effort``
+has any effect, and whether responses expose ``reasoning_content``, thinking
+chunks, or token breakdowns, depends on the server, model, and how it was
+deployed (e.g. llama.cpp without thinking enabled is a no-op for Section 12).
+This provider only parses fields when the server returns them.
 """
 
 import os
@@ -88,7 +94,12 @@ class LocalProvider(Provider):
 
     @classmethod
     def _build_payload(cls, request: CompletionRequest, model: str, stream: bool = False) -> dict:
-        """Build the full request payload for the OpenAI-compatible API."""
+        """Build the full request payload for the OpenAI-compatible API.
+
+        ``thinking_effort`` is not mapped to any wire field here; local backends
+        vary widely and most ignore it unless the caller passes server-specific
+        kwargs via ``generation_kwargs``.
+        """
         payload: dict = {
             "model": model,
             "messages": cls._build_prompt_payload(request),
@@ -106,6 +117,63 @@ class LocalProvider(Provider):
             }
         return payload
 
+    @staticmethod
+    def _extract_text(content: str | list | None) -> str:
+        """Extract answer text from message content (plain string or chunk list)."""
+        if isinstance(content, list):
+            return "".join(
+                chunk.get("text", "") for chunk in content if chunk.get("type") == "text"
+            )
+        return content or ""
+
+    @staticmethod
+    def _thinking_text_from_chunk(chunk: dict) -> str:
+        """Extract thinking text from a single ``type: thinking`` chunk."""
+        nested = chunk.get("thinking")
+        if isinstance(nested, list):
+            return "".join(item.get("text", "") for item in nested if isinstance(item, dict))
+        if isinstance(nested, str):
+            return nested
+        return chunk.get("text", "")
+
+    @staticmethod
+    def _extract_thinking_from_chunks(content: list) -> str | None:
+        """Join thinking text from a list-shaped message ``content``."""
+        parts = [
+            LocalProvider._thinking_text_from_chunk(chunk)
+            for chunk in content
+            if chunk.get("type") == "thinking"
+        ]
+        joined = "".join(parts)
+        return joined if joined else None
+
+    @staticmethod
+    def _extract_thinking(message: dict) -> str | None:
+        """Extract thinking/reasoning text when the server exposes it.
+
+        Backends that do not return reasoning fields (e.g. plain llama.cpp
+        deployments) always yield ``None`` regardless of ``thinking_effort``.
+        """
+        reasoning = message.get("reasoning_content")
+        if isinstance(reasoning, str) and reasoning:
+            return reasoning
+
+        content = message.get("content")
+        if isinstance(content, list):
+            return LocalProvider._extract_thinking_from_chunks(content)
+
+        return None
+
+    @staticmethod
+    def _extract_thinking_tokens(usage: dict) -> int:
+        """Extract reasoning/thinking token count from usage metadata when present."""
+        details = usage.get("completion_tokens_details") or {}
+        for key in ("reasoning_tokens", "thinking_tokens"):
+            value = details.get(key)
+            if isinstance(value, int):
+                return value
+        return 0
+
     @classmethod
     def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
         model, location = cls._parse_model_id(request.model_id)
@@ -116,10 +184,14 @@ class LocalProvider(Provider):
         )
 
         body = response.json()
+        message = body["choices"][0]["message"]
+        usage = body.get("usage", {})
         return RawResponse(
-            content=body["choices"][0]["message"]["content"],
-            input_tokens=body.get("usage", {}).get("prompt_tokens", 0),
-            output_tokens=body.get("usage", {}).get("completion_tokens", 0),
+            content=cls._extract_text(message.get("content")),
+            input_tokens=usage.get("prompt_tokens", 0),
+            output_tokens=usage.get("completion_tokens", 0),
+            thinking=cls._extract_thinking(message),
+            thinking_tokens=cls._extract_thinking_tokens(usage),
         )
 
     @classmethod
@@ -137,6 +209,6 @@ class LocalProvider(Provider):
         for chunk in cls._iter_sse_chunks(response):
             choices = chunk.get("choices", [])
             if choices:
-                token = choices[0].get("delta", {}).get("content", "")
+                token = cls._extract_text(choices[0].get("delta", {}).get("content", ""))
                 if token:
                     yield token

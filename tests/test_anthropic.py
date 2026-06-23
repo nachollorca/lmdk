@@ -1,9 +1,13 @@
 """Tests for lmdk.providers.anthropic — AnthropicProvider."""
 
 import json
+from collections.abc import Sequence
 from unittest.mock import MagicMock, patch
 
-from lmdk.datatypes import CompletionRequest, UserMessage
+from conftest import make_completion_request
+from pydantic import BaseModel
+
+from lmdk.datatypes import CompletionRequest, Message, ThinkingEffort
 from lmdk.provider import RawResponse
 from lmdk.providers.anthropic import (
     ANTHROPIC_API_URL,
@@ -18,28 +22,51 @@ from lmdk.providers.anthropic import (
 # ---------------------------------------------------------------------------
 
 
-def _make_request(**overrides) -> CompletionRequest:
-    defaults = {
-        "model_id": "claude-sonnet-4-20250514",
-        "prompt": [UserMessage(content="hi")],
-        "system_instruction": None,
-        "output_schema": None,
-        "generation_kwargs": {},
-    }
-    defaults.update(overrides)
-    return CompletionRequest(**defaults)
+def _make_request(
+    *,
+    model_id: str = "claude-sonnet-4-20250514",
+    prompt: Sequence[Message] | None = None,
+    system_instruction: str | None = None,
+    output_schema: type[BaseModel] | None = None,
+    generation_kwargs: dict | None = None,
+    thinking_effort: ThinkingEffort = "none",
+) -> CompletionRequest:
+    return make_completion_request(
+        model_id=model_id,
+        prompt=prompt,
+        system_instruction=system_instruction,
+        output_schema=output_schema,
+        generation_kwargs=generation_kwargs,
+        thinking_effort=thinking_effort,
+    )
 
 
-def _mock_chat_response(content: str = "hello", input_tokens: int = 10, output_tokens: int = 5):
+def _mock_chat_response(
+    content: str = "hello",
+    input_tokens: int = 10,
+    output_tokens: int = 5,
+    *,
+    thinking: str | None = None,
+    thinking_tokens: int = 0,
+):
     """Build a mock requests.Response that mimics an Anthropic message response."""
+    blocks: list[dict] = []
+    if thinking is not None:
+        blocks.append({"type": "thinking", "thinking": thinking})
+    blocks.append({"type": "text", "text": content})
+
+    usage: dict = {"input_tokens": input_tokens, "output_tokens": output_tokens}
+    if thinking_tokens:
+        usage["output_tokens_details"] = {"thinking_tokens": thinking_tokens}
+
     resp = MagicMock()
     resp.status_code = 200
     resp.json.return_value = {
         "id": "msg_test",
         "type": "message",
         "role": "assistant",
-        "content": [{"type": "text", "text": content}],
-        "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
+        "content": blocks,
+        "usage": usage,
     }
     return resp
 
@@ -197,6 +224,63 @@ class TestBuildPayload:
         payload = AnthropicProvider._build_payload(request)
         assert "output_config" not in payload
 
+    def test_no_thinking_block_when_effort_none(self):
+        payload = AnthropicProvider._build_payload(_make_request())
+        assert "thinking" not in payload
+
+    def test_thinking_effort_low_maps_to_adaptive(self):
+        request = _make_request(thinking_effort="low")
+        payload = AnthropicProvider._build_payload(request)
+        assert payload["thinking"] == {"type": "adaptive"}
+        assert payload["output_config"]["effort"] == "low"
+
+    def test_thinking_effort_medium_maps_to_adaptive(self):
+        request = _make_request(thinking_effort="medium")
+        payload = AnthropicProvider._build_payload(request)
+        assert payload["thinking"] == {"type": "adaptive"}
+        assert payload["output_config"]["effort"] == "medium"
+
+    def test_thinking_effort_high_maps_to_adaptive(self):
+        request = _make_request(thinking_effort="high")
+        payload = AnthropicProvider._build_payload(request)
+        assert payload["thinking"] == {"type": "adaptive"}
+        assert payload["output_config"]["effort"] == "high"
+
+    def test_thinking_effort_drops_incompatible_sampling_kwargs(self):
+        request = _make_request(
+            thinking_effort="medium",
+            generation_kwargs={"temperature": 0, "top_p": 0.9, "top_k": 50},
+        )
+        payload = AnthropicProvider._build_payload(request)
+        assert "temperature" not in payload
+        assert "top_p" not in payload
+        assert "top_k" not in payload
+
+    def test_thinking_effort_keeps_user_max_tokens(self):
+        request = _make_request(
+            thinking_effort="low",
+            generation_kwargs={"max_tokens": 4096},
+        )
+        payload = AnthropicProvider._build_payload(request)
+        assert payload["max_tokens"] == 4096
+
+    def test_thinking_effort_with_structured_output(self):
+        request = _make_request(thinking_effort="low", output_schema=Person)
+        payload = AnthropicProvider._build_payload(request)
+        assert payload["thinking"] == {"type": "adaptive"}
+        assert payload["output_config"]["effort"] == "low"
+        assert payload["output_config"]["format"]["type"] == "json_schema"
+
+    def test_explicit_thinking_in_generation_kwargs_overrides_thinking_effort(self):
+        custom = {"type": "enabled", "budget_tokens": 256}
+        request = _make_request(
+            thinking_effort="high",
+            generation_kwargs={"thinking": custom, "max_tokens": 4096},
+        )
+        payload = AnthropicProvider._build_payload(request)
+        assert payload["thinking"] == custom
+        assert "output_config" not in payload
+
 
 # ---------------------------------------------------------------------------
 # _prepare_schema
@@ -283,6 +367,52 @@ class TestExtractText:
     def test_missing_content_key(self):
         body = {}
         assert AnthropicProvider._extract_text(body) == ""
+
+    def test_ignores_thinking_blocks(self):
+        body = {
+            "content": [
+                {"type": "thinking", "thinking": "Let me think..."},
+                {"type": "text", "text": "The answer"},
+            ]
+        }
+        assert AnthropicProvider._extract_text(body) == "The answer"
+
+
+# ---------------------------------------------------------------------------
+# _extract_thinking
+# ---------------------------------------------------------------------------
+
+
+class TestExtractThinking:
+    def test_extracts_thinking_block(self):
+        body = {
+            "content": [
+                {"type": "thinking", "thinking": "Let me think..."},
+                {"type": "text", "text": "The answer"},
+            ]
+        }
+        assert AnthropicProvider._extract_thinking(body) == "Let me think..."
+
+    def test_concatenates_multiple_thinking_blocks(self):
+        body = {
+            "content": [
+                {"type": "thinking", "thinking": "step 1"},
+                {"type": "thinking", "thinking": " step 2"},
+                {"type": "text", "text": "done"},
+            ]
+        }
+        assert AnthropicProvider._extract_thinking(body) == "step 1 step 2"
+
+    def test_returns_none_when_no_thinking_blocks(self):
+        body = {"content": [{"type": "text", "text": "Hello!"}]}
+        assert AnthropicProvider._extract_thinking(body) is None
+
+    def test_returns_none_when_empty_content(self):
+        body = {"content": []}
+        assert AnthropicProvider._extract_thinking(body) is None
+
+    def test_returns_none_when_missing_content_key(self):
+        assert AnthropicProvider._extract_thinking({}) is None
 
 
 # ---------------------------------------------------------------------------
@@ -380,6 +510,31 @@ class TestSendRequest:
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         oc = payload["output_config"]
         assert oc["format"]["type"] == "json_schema"
+
+    def test_populates_thinking_and_thinking_tokens(self):
+        mock_resp = _mock_chat_response(
+            content="The answer is 391.",
+            thinking="17 * 23 = 391",
+            thinking_tokens=40,
+        )
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            result = AnthropicProvider._send_request(
+                _make_request(), credentials={"ANTHROPIC_API_KEY": "sk-test"}
+            )
+
+        assert result.content == "The answer is 391."
+        assert result.thinking == "17 * 23 = 391"
+        assert result.thinking_tokens == 40
+
+    def test_missing_thinking_defaults(self):
+        mock_resp = _mock_chat_response()
+        with patch("lmdk.provider.requests.post", return_value=mock_resp):
+            result = AnthropicProvider._send_request(
+                _make_request(), credentials={"ANTHROPIC_API_KEY": "sk-test"}
+            )
+
+        assert result.thinking is None
+        assert result.thinking_tokens == 0
 
 
 # ---------------------------------------------------------------------------

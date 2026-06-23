@@ -71,9 +71,21 @@ class Provider(ABC):
             content=raw.content,
             input_tokens=raw.input_tokens,
             output_tokens=raw.output_tokens,
+            thinking=raw.thinking,
+            thinking_tokens=raw.thinking_tokens,
             latency=latency,
             parsed=parsed,
         )
+
+    @classmethod
+    def request_reasoning_level(cls, request: CompletionRequest) -> str:
+        """Return the reasoning level string sent to the provider for telemetry.
+
+        Maps to ``gen_ai.request.reasoning.level``. Returns the provider-specific
+        level when the outbound request includes a reasoning or thinking control,
+        otherwise ``"none"``.
+        """
+        return "none"
 
     @classmethod
     @abstractmethod
