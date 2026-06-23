@@ -127,7 +127,7 @@ response = complete(
 
 `thinking_effort` is mapped per provider:
 - OpenAI: `reasoning.effort`
-- Vertex (Gemini 3): `thinkingConfig.thinkingLevel` (`"low"` / `"medium"` / `"high"`). `"none"` is a no-op since Gemini 3 can't disable thinking.
+- Vertex (Gemini 3): `thinkingConfig.thinkingLevel`. `"none"` maps to `"minimal"` on Flash / Flash-Lite models (`"low"` on Pro, which rejects `"minimal"`); `"low"` / `"medium"` / `"high"` pass through. Gemini 3 cannot fully disable thinking.
 - Anthropic: adaptive thinking (`thinking={type: "adaptive"}`) with the effort level passed as `output_config.effort` (`"low"` / `"medium"` / `"high"`). Sampling kwargs (`temperature`, `top_p`, `top_k`) are dropped to satisfy the API constraint.
 - Mistral: `reasoning_effort`. By default lmdk maps any non-`"none"` level to `"high"`, since that is the only value Mistral's chat API is documented to accept. You can still override it through `generation_kwargs` (e.g. `generation_kwargs={"reasoning_effort": "low"}`), but the API may reject values other than `"high"`.
 

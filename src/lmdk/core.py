@@ -75,8 +75,8 @@ def complete(
             /``"high"`` map to the provider's native knob (OpenAI
             ``reasoning.effort``, Vertex ``thinkingConfig.thinkingLevel``,
             Anthropic ``thinking``, Mistral ``reasoning_effort``). On Vertex
-            (Gemini 3), thinking cannot be disabled, so ``"none"`` is a no-op
-            and the model's default thinking behavior applies.
+            (Gemini 3), thinking cannot be fully disabled; ``"none"`` maps to
+            ``thinkingLevel: "minimal"`` (``"low"`` on Pro models).
             ``generation_kwargs`` overrides the mapped value for power-user
             escape hatches.
 

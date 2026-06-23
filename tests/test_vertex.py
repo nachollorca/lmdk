@@ -289,10 +289,25 @@ class TestBuildPayload:
         payload = VertexProvider._build_payload(request)
         assert payload["systemInstruction"] == {"parts": [{"text": "Be a pirate."}]}
 
-    def test_thinking_omitted_by_default(self):
+    def test_thinking_omitted_by_default_for_gemini_2_5(self):
         request = _make_request()
         payload = VertexProvider._build_payload(request)
         assert "thinkingConfig" not in payload["generationConfig"]
+
+    def test_thinking_effort_none_maps_to_minimal_for_gemini_3_flash(self):
+        request = _make_request(model_id="gemini-3.5-flash")
+        payload = VertexProvider._build_payload(request)
+        assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
+
+    def test_thinking_effort_none_maps_to_minimal_for_gemini_3_flash_lite(self):
+        request = _make_request(model_id="gemini-3.1-flash-lite")
+        payload = VertexProvider._build_payload(request)
+        assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
+
+    def test_thinking_effort_none_maps_to_low_for_gemini_3_pro(self):
+        request = _make_request(model_id="gemini-3.1-pro-preview")
+        payload = VertexProvider._build_payload(request)
+        assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
 
     def test_thinking_config_can_be_set_via_generation_kwargs(self):
         request = _make_request(generation_kwargs={"thinkingConfig": {"thinkingLevel": "low"}})
@@ -301,12 +316,13 @@ class TestBuildPayload:
 
     def test_thinking_effort_maps_to_thinking_level(self):
         for effort in ("low", "medium", "high"):
-            request = _make_request(thinking_effort=effort)
+            request = _make_request(model_id="gemini-3.5-flash", thinking_effort=effort)
             payload = VertexProvider._build_payload(request)
             assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": effort}
 
     def test_explicit_thinking_config_overrides_thinking_effort(self):
         request = _make_request(
+            model_id="gemini-3.5-flash",
             thinking_effort="high",
             generation_kwargs={"thinkingConfig": {"thinkingLevel": "low"}},
         )

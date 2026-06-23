@@ -98,6 +98,23 @@ class VertexProvider(Provider):
         return contents
 
     @classmethod
+    def _vertex_thinking_level(cls, request: CompletionRequest) -> str | None:
+        """Map ``thinking_effort`` to Vertex ``thinkingLevel`` for Gemini 3 models.
+
+        Gemini 3 cannot fully disable thinking. ``"none"`` maps to the practical
+        minimum: ``"minimal"`` on Flash / Flash-Lite models, ``"low"`` on Pro
+        models (which reject ``"minimal"``). Returns ``None`` for non-Gemini-3
+        models so legacy ``thinkingBudget`` behaviour is unchanged.
+        """
+        model, _ = cls._parse_model_id(request.model_id)
+        if not model.startswith("gemini-3"):
+            return None
+
+        if request.thinking_effort == "none":
+            return "low" if "pro" in model else "minimal"
+        return request.thinking_effort
+
+    @classmethod
     def _build_generation_config(cls, request: CompletionRequest) -> dict:
         """Build the ``generationConfig`` object.
 
@@ -105,10 +122,9 @@ class VertexProvider(Provider):
         ``top_p``, …) to their Vertex AI camelCase equivalents and merges
         structured-output directives when an ``output_schema`` is present.
 
-        ``thinking_effort`` maps to ``thinkingConfig.thinkingLevel`` (Gemini 3).
-        ``"none"`` omits the config since Gemini 3 cannot disable thinking. An
-        explicit ``thinkingConfig`` in ``generation_kwargs`` overrides the
-        mapped value.
+        ``thinking_effort`` maps to ``thinkingConfig.thinkingLevel`` on Gemini 3
+        models. An explicit ``thinkingConfig`` in ``generation_kwargs``
+        overrides the mapped value.
         """
         config: dict = {}
 
@@ -116,8 +132,9 @@ class VertexProvider(Provider):
             mapped_key = _GENERATION_KEY_MAP.get(key, key)
             config[mapped_key] = value
 
-        if request.thinking_effort != "none":
-            config.setdefault("thinkingConfig", {"thinkingLevel": request.thinking_effort})
+        thinking_level = cls._vertex_thinking_level(request)
+        if thinking_level is not None:
+            config.setdefault("thinkingConfig", {"thinkingLevel": thinking_level})
 
         if request.output_schema:
             config["responseMimeType"] = "application/json"
