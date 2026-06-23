@@ -35,6 +35,8 @@ def print_response(label: str, response: CompletionResponse) -> None:
     print(f"  .output       = {response.output!r}")
     print(f"  .input_tokens = {response.input_tokens}")
     print(f"  .output_tokens= {response.output_tokens}")
+    print(f"  .thinking      = {response.thinking!r}")
+    print(f"  .thinking_tokens= {response.thinking_tokens}")
     print(f"  .latency      = {response.latency:.3f}s")
 
 
@@ -263,27 +265,34 @@ def main(model: str) -> None:
     except Exception as e:
         print(f"[FAILED] Batch with structured output -> {type(e).__name__}: {e}")
 
-    # ── Section 12: Thinking / reasoning effort ───────────────────────────
-    # thinking_effort guides how much the model reasons before answering.
-    # Accepts "none" (default), "low", "medium", "high". Mapping is
-    # provider-specific (see README). Not all providers/models support it.
-    section(12, "Thinking / reasoning effort")
+    # ── Section 12: Thinking / reasoning ──────────────────────────────────
+    # Exercises thinking_effort end-to-end: compare thinking_tokens across
+    # effort levels, optionally surface thinking text, and smoke-test
+    # combinations with structured output and streaming.
+    section(12, "Thinking / reasoning")
+    thinking_prompt = "What is 17 * 23? Think step by step, then give the final answer."
+
+    print("  (a) Effort sweep — compare thinking_tokens across levels")
     for effort in ("none", "low", "medium", "high"):
         try:
             response = complete(
                 model=model,
-                prompt="A bat and a ball cost $1.10. The bat costs $1 more than the ball. "
-                "How much is the ball?",
+                prompt=thinking_prompt,
                 thinking_effort=effort,
             )
-            print_response(f"thinking_effort={effort!r}", response)
+            thinking_preview = response.thinking
+            if thinking_preview and len(thinking_preview) > 80:
+                thinking_preview = thinking_preview[:80] + "..."
+            print(
+                f"    [{effort:6}] thinking_tokens={response.thinking_tokens:4}  "
+                f"output_tokens={response.output_tokens:4}  "
+                f"thinking={thinking_preview!r}  "
+                f"content={response.content!r}"
+            )
         except Exception as e:
-            print(f"[FAILED] thinking_effort={effort!r} -> {type(e).__name__}: {e}")
+            print(f"    [{effort:6}] [FAILED] {type(e).__name__}: {e}")
 
-    # ── Section 13: Thinking + structured output ──────────────────────────
-    # Where the provider supports both, reasoning effort works alongside an
-    # output_schema.
-    section(13, "Thinking + structured output")
+    print("  (b) Structured output + thinking")
     try:
         response = complete(
             model=model,
@@ -291,14 +300,14 @@ def main(model: str) -> None:
             output_schema=City,
             thinking_effort="medium",
         )
-        print_response("Thinking + structured output", response)
+        print(
+            f"    [OK] parsed={response.parsed!r}  thinking_tokens={response.thinking_tokens}  "
+            f"thinking={response.thinking!r}"
+        )
     except Exception as e:
-        print(f"[FAILED] Thinking + structured output -> {type(e).__name__}: {e}")
+        print(f"    [FAILED] {type(e).__name__}: {e}")
 
-    # ── Section 14: Thinking + streaming ──────────────────────────────────
-    # Reasoning effort combined with streaming. Only the text deltas are
-    # yielded; thinking blocks are not surfaced as tokens.
-    section(14, "Thinking + streaming")
+    print("  (c) Streaming — only answer text deltas are yielded")
     try:
         token_iter = complete(
             model=model,
@@ -306,13 +315,12 @@ def main(model: str) -> None:
             thinking_effort="low",
             stream=True,
         )
-        print("[OK] Thinking + streaming")
-        print("  tokens: ", end="")
+        print("    [OK] tokens: ", end="")
         for token in token_iter:
             print(token, end="", flush=True)
-        print()  # newline after stream
+        print()
     except Exception as e:
-        print(f"[FAILED] Thinking + streaming -> {type(e).__name__}: {e}")
+        print(f"    [FAILED] {type(e).__name__}: {e}")
 
     # ── Done ──────────────────────────────────────────────────────────────
     print(f"\n{SEPARATOR}")

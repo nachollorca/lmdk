@@ -63,6 +63,8 @@ class RawResponse:
     content: str
     input_tokens: int
     output_tokens: int
+    thinking: str | None = None
+    thinking_tokens: int = 0
 
 
 T = TypeVar("T", bound=BaseModel | None)
@@ -79,6 +81,9 @@ class CompletionResponse(RawResponse, Generic[T]):  # noqa: UP046
         content: The raw string response from the LLM.
         input_tokens: The number of tokens consumed in the input/prompt.
         output_tokens: The number of tokens generated in the response.
+        thinking: Optional thinking trace or summary when the provider exposes it.
+        thinking_tokens: The number of output tokens spent on thinking. ``0`` when
+            the provider does not report a breakdown.
         latency: The time in seconds taken to generate the response.
         parsed: Optional parsed structured output as a BaseModel instance, or None
             if no output schema was specified.
@@ -137,8 +142,9 @@ class CompletionBatch:
             else:
                 ...
 
-    Aggregations (``input_tokens``, ``output_tokens``, ``latency``,
-    ``parsed``, ``output``) are computed over **successful** responses only.
+    Aggregations (``input_tokens``, ``output_tokens``, ``thinking_tokens``,
+    ``latency``, ``parsed``, ``output``) are computed over **successful**
+    responses only.
 
     Attributes:
         results: The per-input outcomes, each a ``CompletionResponse`` or
@@ -175,6 +181,11 @@ class CompletionBatch:
     def output_tokens(self) -> int:
         """Total output tokens across successful responses."""
         return sum(r.output_tokens for r in self.responses)
+
+    @property
+    def thinking_tokens(self) -> int:
+        """Total thinking tokens across successful responses."""
+        return sum(r.thinking_tokens for r in self.responses)
 
     @property
     def latency(self) -> float:

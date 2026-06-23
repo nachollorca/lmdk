@@ -60,6 +60,11 @@ class _CompletionTelemetry:
                 )
         self._span.set_attribute("gen_ai.usage.input_tokens", response.input_tokens)
         self._span.set_attribute("gen_ai.usage.output_tokens", response.output_tokens)
+        if response.thinking_tokens:
+            self._span.set_attribute(
+                "gen_ai.usage.reasoning.output_tokens",
+                response.thinking_tokens,
+            )
         if self._capture_content:
             self._span.set_attribute(
                 "gen_ai.output.messages",

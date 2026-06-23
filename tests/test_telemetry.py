@@ -197,6 +197,42 @@ def test_metadata_mode_records_mistral_reasoning_level(monkeypatch, otel_setup):
     assert span.attributes["gen_ai.request.reasoning.level"] == "high"
 
 
+def test_metadata_mode_records_thinking_tokens_on_span(monkeypatch, otel_setup):
+    span_exporter, _ = otel_setup
+    monkeypatch.setenv("LMDK_TELEMETRY", "metadata")
+
+    with traced_completion(
+        FakeProvider, "fake", "model", _request(), fallback_index=0
+    ) as telemetry:
+        telemetry.record_response(
+            CompletionResponse(
+                content="ok",
+                input_tokens=10,
+                output_tokens=50,
+                thinking="trace",
+                thinking_tokens=40,
+            )
+        )
+
+    span = span_exporter.get_finished_spans()[0]
+    assert span.attributes["gen_ai.usage.input_tokens"] == 10
+    assert span.attributes["gen_ai.usage.output_tokens"] == 50
+    assert span.attributes["gen_ai.usage.reasoning.output_tokens"] == 40
+
+
+def test_metadata_mode_omits_reasoning_tokens_when_zero(monkeypatch, otel_setup):
+    span_exporter, _ = otel_setup
+    monkeypatch.setenv("LMDK_TELEMETRY", "metadata")
+
+    with traced_completion(
+        FakeProvider, "fake", "model", _request(), fallback_index=0
+    ) as telemetry:
+        telemetry.record_response(CompletionResponse(content="ok", input_tokens=1, output_tokens=2))
+
+    span = span_exporter.get_finished_spans()[0]
+    assert "gen_ai.usage.reasoning.output_tokens" not in span.attributes
+
+
 def test_content_mode_records_prompt_system_instruction_and_response(monkeypatch, otel_setup):
     span_exporter, _ = otel_setup
     monkeypatch.setenv("LMDK_TELEMETRY", "content")
