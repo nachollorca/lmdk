@@ -1,16 +1,47 @@
 """Abstract base class for LLM providers."""
 
+import datetime
 import importlib
 import json
 import os
+import random
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
+from email.utils import parsedate_to_datetime
 
 import requests
 
 from lmdk.datatypes import CompletionRequest, CompletionResponse, RawResponse
 from lmdk.errors import STATUS_TO_ERROR, AuthenticationError, ProviderError
+
+
+def _parse_retry_after(retry_after: str | None) -> float | None:
+    """Parse HTTP Retry-After header value as seconds to sleep.
+
+    Can handle both a numeric string and an HTTP GMT/naive date string.
+    """
+    if not retry_after:
+        return None
+    try:
+        return float(retry_after)
+    except ValueError:
+        try:
+            dt = parsedate_to_datetime(retry_after)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=datetime.UTC)
+            now = datetime.datetime.now(datetime.UTC)
+            return max(0.0, (dt - now).total_seconds())
+        except Exception:
+            return None
+
+
+def _calculate_backoff(
+    attempt: int, initial_delay: float, backoff_factor: float, max_delay: float
+) -> float:
+    """Calculate exponential backoff with full randomized jitter."""
+    calculated_delay = min(max_delay, initial_delay * (backoff_factor**attempt))
+    return random.uniform(0, calculated_delay)
 
 
 class Provider(ABC):
@@ -41,6 +72,12 @@ class Provider(ABC):
 
     # zero, one, or multiple required environment variables (empty = none required)
     required_env: str | tuple[str, ...] = ()
+
+    # retry configuration for `_make_request`
+    max_retries: int = 3
+    initial_delay: float = 1.0
+    backoff_factor: float = 2.0
+    max_delay: float = 60.0
 
     @classmethod
     def complete(
@@ -128,7 +165,12 @@ class Provider(ABC):
 
     @classmethod
     def _make_request(
-        cls, url: str, *, json: dict, headers: dict | None = None, **kwargs
+        cls,
+        url: str,
+        *,
+        json: dict,
+        headers: dict | None = None,
+        **kwargs,
     ) -> requests.Response:
         """Send a POST request and raise on non-200 responses.
 
@@ -138,9 +180,22 @@ class Provider(ABC):
 
         Returns the :class:`requests.Response` on success.
         """
-        response = requests.post(url, json=json, headers=headers, **kwargs)
+        for attempt in range(cls.max_retries + 1):
+            response = requests.post(url, json=json, headers=headers, **kwargs)
 
-        if response.status_code != 200:
+            if response.status_code == 200:
+                return response
+
+            if response.status_code == 429 and attempt < cls.max_retries:
+                delay = _parse_retry_after(response.headers.get("Retry-After"))
+                if delay is None or delay < 0:
+                    delay = _calculate_backoff(
+                        attempt, cls.initial_delay, cls.backoff_factor, cls.max_delay
+                    )
+
+                time.sleep(delay)
+                continue
+
             error_cls = STATUS_TO_ERROR.get(response.status_code, ProviderError)
             raise error_cls(
                 status_code=response.status_code,
@@ -149,7 +204,12 @@ class Provider(ABC):
                 body=response.text,
             )
 
-        return response
+        # Fallback to satisfy static typing if loop doesn't execute
+        raise ProviderError(
+            status_code=0,
+            message=f"{cls.__name__}: Request failed without response.",
+            provider=cls.__name__,
+        )
 
     @classmethod
     def _resolve_credentials(cls) -> dict[str, str]:
