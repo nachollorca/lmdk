@@ -111,6 +111,8 @@ def traced_completion(
         "gen_ai.provider.name": provider_name,
         "gen_ai.request.model": model_name,
     }
+    if request.calling_service is not None:
+        metric_attributes["lmdk.calling_service"] = request.calling_service
     meter = metrics.get_meter("lmdk")
     duration_histogram = meter.create_histogram("gen_ai.client.operation.duration", unit="s")
     token_usage_histogram = meter.create_histogram("gen_ai.client.token.usage", unit="{token}")
@@ -195,6 +197,9 @@ def _span_attributes(
     }
     if location is not None:
         attributes["lmdk.location"] = location
+
+    if request.calling_service is not None:
+        attributes["lmdk.calling_service"] = request.calling_service
 
     for kwarg_name, attribute_name in _REQUEST_ATTRIBUTE_NAMES.items():
         value = request.generation_kwargs.get(kwarg_name)

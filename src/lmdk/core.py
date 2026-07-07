@@ -31,6 +31,7 @@ def complete(
     stream: Literal[True],
     generation_kwargs: dict | None = None,
     thinking_effort: ThinkingEffort = "none",
+    calling_service: str | None = None,
 ) -> Iterator[str]: ...  # stream=True  -> yields tokens one by one
 
 
@@ -43,6 +44,7 @@ def complete(
     stream: Literal[False] = False,
     generation_kwargs: dict | None = None,
     thinking_effort: ThinkingEffort = "none",
+    calling_service: str | None = None,
 ) -> CompletionResponse: ...  # stream=False (default) -> complete response
 
 
@@ -55,6 +57,7 @@ def complete(
     stream: bool = False,
     generation_kwargs: dict | None = None,
     thinking_effort: ThinkingEffort = "none",
+    calling_service: str | None = None,
 ) -> CompletionResponse | Iterator[str]:
     """Generate a response from a language model.
 
@@ -79,6 +82,7 @@ def complete(
             ``thinkingLevel: "minimal"`` (``"low"`` on Pro models).
             ``generation_kwargs`` overrides the mapped value for power-user
             escape hatches.
+        calling_service: Optional name of the service calling the function, sent to telemetry.
 
     Returns:
         A ``CompletionResponse`` with the generated content and metadata, or an
@@ -110,6 +114,7 @@ def complete(
                 generation_kwargs=generation_kwargs,
                 thinking_effort=thinking_effort,
                 fallback_index=i,
+                calling_service=calling_service,
             )
         except Exception as exc:
             errors[m] = exc
@@ -151,6 +156,7 @@ def _complete_model(
     generation_kwargs: dict,
     thinking_effort: ThinkingEffort,
     fallback_index: int,
+    calling_service: str | None = None,
 ) -> CompletionResponse | Iterator[str]:
     provider_name, model_id = model.split(":", maxsplit=1)
     provider = load_provider(name=provider_name)
@@ -161,6 +167,7 @@ def _complete_model(
         output_schema=output_schema,
         generation_kwargs=generation_kwargs,
         thinking_effort=thinking_effort,
+        calling_service=calling_service,
     )
 
     if stream:
@@ -183,6 +190,7 @@ def complete_batch(
     generation_kwargs: dict[str, Any] | None = None,
     thinking_effort: ThinkingEffort = "none",
     max_workers: int = 10,
+    calling_service: str | None = None,
 ) -> CompletionBatch:
     """Generate responses for multiple conversations in parallel.
 
@@ -201,6 +209,7 @@ def complete_batch(
         thinking_effort: Cross-provider reasoning/thinking control. See
             :func:`complete` for details.
         max_workers: Maximum number of concurrent threads.
+        calling_service: Optional name of the service calling the function, sent to telemetry.
 
     Returns:
         A :class:`CompletionBatch` whose ``results`` list has one entry per
@@ -208,6 +217,7 @@ def complete_batch(
         a ``CompletionResponse`` on success or the ``Exception`` raised on
         failure. The batch is iterable and indexable for direct access to
         these outcomes, and exposes aggregate properties (``input_tokens``,
+
         ``output_tokens``, ``latency``, ``parsed``, ``output``) computed over
         the successful responses.
     """
@@ -219,6 +229,7 @@ def complete_batch(
         "stream": False,
         "generation_kwargs": generation_kwargs,
         "thinking_effort": thinking_effort,
+        "calling_service": calling_service,
     }
     params_list = [{**shared_kwargs, "prompt": prompt} for prompt in prompt_list]
 
