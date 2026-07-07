@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.7.0 (2026-07-07)
+
+### Features
+
+- Add calling_service parameter for enhanced telemetry tracking
+  ([`8a5cf12`](https://github.com/nachollorca/lmdk/commit/8a5cf12eda1ed1c3fdc74132ed003a7cab151bee))
+
+
 ## v2.6.0 (2026-06-23)
 
 ### Bug Fixes
