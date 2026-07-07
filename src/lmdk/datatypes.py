@@ -50,6 +50,7 @@ class CompletionRequest:
     output_schema: type[BaseModel] | None
     generation_kwargs: dict
     thinking_effort: ThinkingEffort = "none"
+    calling_service: str | None = None
 
 
 @dataclass(frozen=True)

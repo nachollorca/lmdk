@@ -345,3 +345,50 @@ def test_streaming_completions_are_not_instrumented(monkeypatch, patch_load_prov
     assert list(result) == ["chunk1", "chunk2"]
     assert span_exporter.get_finished_spans() == ()
     assert _metric_points(metric_reader, "gen_ai.client.operation.duration") == []
+
+
+def test_calling_service_is_recorded_in_telemetry(monkeypatch, patch_load_provider, otel_setup):
+    from lmdk.core import complete_batch
+
+    span_exporter, metric_reader = otel_setup
+    monkeypatch.setenv("LMDK_TELEMETRY", "metadata")
+
+    # Call complete with calling_service
+    result = complete(
+        model="fake:model",
+        prompt="hello",
+        calling_service="my-web-service",
+    )
+
+    assert result.content == "fake response"
+    spans = span_exporter.get_finished_spans()
+    assert len(spans) == 1
+    span = spans[0]
+    assert span.attributes["lmdk.calling_service"] == "my-web-service"
+
+    duration_points = _metric_points(metric_reader, "gen_ai.client.operation.duration")
+    assert len(duration_points) == 1
+    assert duration_points[0].attributes["lmdk.calling_service"] == "my-web-service"
+
+    # Reset
+    span_exporter.clear()
+
+    # Call complete without calling_service
+    complete(model="fake:model", prompt="hello")
+    spans = span_exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert "lmdk.calling_service" not in spans[0].attributes
+
+    # Reset
+    span_exporter.clear()
+
+    # Call complete_batch with calling_service
+    complete_batch(
+        model="fake:model",
+        prompt_list=["hello", "world"],
+        calling_service="batch-service",
+    )
+    spans = span_exporter.get_finished_spans()
+    assert len(spans) == 2
+    for span in spans:
+        assert span.attributes["lmdk.calling_service"] == "batch-service"
