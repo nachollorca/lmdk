@@ -192,6 +192,7 @@ class Provider(ABC):
                     delay = _calculate_backoff(
                         attempt, cls.initial_delay, cls.backoff_factor, cls.max_delay
                     )
+                delay = min(delay, cls.max_delay)
 
                 time.sleep(delay)
                 continue
@@ -204,12 +205,7 @@ class Provider(ABC):
                 body=response.text,
             )
 
-        # Fallback to satisfy static typing if loop doesn't execute
-        raise ProviderError(
-            status_code=0,
-            message=f"{cls.__name__}: Request failed without response.",
-            provider=cls.__name__,
-        )
+        raise AssertionError("unreachable")
 
     @classmethod
     def _resolve_credentials(cls) -> dict[str, str]:

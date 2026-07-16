@@ -270,14 +270,30 @@ class TestMakeRequest:
         with (
             patch("lmdk.provider.requests.post", side_effect=responses),
             patch("lmdk.provider.time.sleep") as mock_sleep,
+            patch("lmdk.provider.random.uniform", return_value=0.5),
         ):
-            result = fake_provider._make_request("https://example.com", json={}, initial_delay=1.0)
+            fake_provider.initial_delay = 1.0
+            result = fake_provider._make_request("https://example.com", json={})
 
         assert result is mock_200
         assert mock_sleep.call_count == 1
-        # Sleep time should have used jitter and be between 0 and initial_delay (1.0)
-        called_arg = mock_sleep.call_args[0][0]
-        assert 0.0 <= called_arg <= 1.0
+        mock_sleep.assert_called_once_with(0.5)
+
+    def test_429_retry_after_capped_at_max_delay(self, fake_provider):
+        mock_429 = _mock_http_response(429, reason="Too Many Requests")
+        mock_429.headers = {"Retry-After": "120"}
+        mock_200 = _mock_http_response(200)
+
+        responses = [mock_429, mock_200]
+        with (
+            patch("lmdk.provider.requests.post", side_effect=responses),
+            patch("lmdk.provider.time.sleep") as mock_sleep,
+        ):
+            fake_provider.max_delay = 60.0
+            result = fake_provider._make_request("https://example.com", json={})
+
+        assert result is mock_200
+        mock_sleep.assert_called_once_with(60.0)
 
     def test_500_raises_internal_server_error(self, fake_provider):
         mock_resp = _mock_http_response(500, reason="Internal Server Error")
