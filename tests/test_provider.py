@@ -172,10 +172,128 @@ class TestMakeRequest:
         mock_resp = _mock_http_response(429, reason="Too Many Requests")
         with (
             patch("lmdk.provider.requests.post", return_value=mock_resp),
+            patch("lmdk.provider.time.sleep") as mock_sleep,
             pytest.raises(RateLimitError) as exc_info,
         ):
             fake_provider._make_request("https://example.com", json={})
         assert exc_info.value.status_code == 429
+        assert mock_sleep.call_count == 3
+
+    def test_429_retries_and_succeeds(self, fake_provider):
+        mock_429 = _mock_http_response(429, reason="Too Many Requests")
+        mock_200 = _mock_http_response(200)
+
+        # Side effect: two 429s, then one 200
+        responses = [mock_429, mock_429, mock_200]
+
+        with (
+            patch("lmdk.provider.requests.post", side_effect=responses) as mock_post,
+            patch("lmdk.provider.time.sleep") as mock_sleep,
+        ):
+            result = fake_provider._make_request("https://example.com", json={})
+
+        assert result is mock_200
+        assert mock_post.call_count == 3
+        assert mock_sleep.call_count == 2
+
+    def test_429_retry_after_numeric(self, fake_provider):
+        mock_429 = _mock_http_response(429, reason="Too Many Requests")
+        mock_429.headers = {"Retry-After": "5.5"}
+        mock_200 = _mock_http_response(200)
+
+        responses = [mock_429, mock_200]
+        with (
+            patch("lmdk.provider.requests.post", side_effect=responses),
+            patch("lmdk.provider.time.sleep") as mock_sleep,
+        ):
+            result = fake_provider._make_request("https://example.com", json={})
+
+        assert result is mock_200
+        mock_sleep.assert_called_once_with(5.5)
+
+    def test_429_retry_after_http_date(self, fake_provider):
+        import datetime
+
+        mock_429 = _mock_http_response(429, reason="Too Many Requests")
+        # Set a Retry-After header 10 seconds into the future
+        future_time = datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=10)
+        # HTTP date format: e.g. Wed, 21 Oct 2015 07:28:00 GMT
+        from email.utils import formatdate
+
+        http_date = formatdate(future_time.timestamp(), usegmt=True)
+
+        mock_429.headers = {"Retry-After": http_date}
+        mock_200 = _mock_http_response(200)
+
+        responses = [mock_429, mock_200]
+        with (
+            patch("lmdk.provider.requests.post", side_effect=responses),
+            patch("lmdk.provider.time.sleep") as mock_sleep,
+        ):
+            result = fake_provider._make_request("https://example.com", json={})
+
+        assert result is mock_200
+        assert mock_sleep.call_count == 1
+        # The sleep duration should be very close to 10 seconds
+        called_arg = mock_sleep.call_args[0][0]
+        assert 9.0 <= called_arg <= 11.0
+
+    def test_429_retry_after_naive_date(self, fake_provider):
+        import datetime
+
+        mock_429 = _mock_http_response(429, reason="Too Many Requests")
+        # Generate a naive datetime string 10 seconds into the future
+        future_time = datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=10)
+        naive_date = future_time.strftime("%d %b %Y %H:%M:%S")
+
+        mock_429.headers = {"Retry-After": naive_date}
+        mock_200 = _mock_http_response(200)
+
+        responses = [mock_429, mock_200]
+        with (
+            patch("lmdk.provider.requests.post", side_effect=responses),
+            patch("lmdk.provider.time.sleep") as mock_sleep,
+        ):
+            result = fake_provider._make_request("https://example.com", json={})
+
+        assert result is mock_200
+        assert mock_sleep.call_count == 1
+        called_arg = mock_sleep.call_args[0][0]
+        assert 9.0 <= called_arg <= 11.0
+
+    def test_429_retry_after_invalid_fallback_to_jitter(self, fake_provider):
+        mock_429 = _mock_http_response(429, reason="Too Many Requests")
+        mock_429.headers = {"Retry-After": "invalid-date-or-number"}
+        mock_200 = _mock_http_response(200)
+
+        responses = [mock_429, mock_200]
+        with (
+            patch("lmdk.provider.requests.post", side_effect=responses),
+            patch("lmdk.provider.time.sleep") as mock_sleep,
+            patch("lmdk.provider.random.uniform", return_value=0.5),
+        ):
+            fake_provider.initial_delay = 1.0
+            result = fake_provider._make_request("https://example.com", json={})
+
+        assert result is mock_200
+        assert mock_sleep.call_count == 1
+        mock_sleep.assert_called_once_with(0.5)
+
+    def test_429_retry_after_capped_at_max_delay(self, fake_provider):
+        mock_429 = _mock_http_response(429, reason="Too Many Requests")
+        mock_429.headers = {"Retry-After": "120"}
+        mock_200 = _mock_http_response(200)
+
+        responses = [mock_429, mock_200]
+        with (
+            patch("lmdk.provider.requests.post", side_effect=responses),
+            patch("lmdk.provider.time.sleep") as mock_sleep,
+        ):
+            fake_provider.max_delay = 60.0
+            result = fake_provider._make_request("https://example.com", json={})
+
+        assert result is mock_200
+        mock_sleep.assert_called_once_with(60.0)
 
     def test_500_raises_internal_server_error(self, fake_provider):
         mock_resp = _mock_http_response(500, reason="Internal Server Error")
