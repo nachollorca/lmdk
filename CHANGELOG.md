@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v2.8.0 (2026-07-16)
+
+### Bug Fixes
+
+- **provider**: Cap 429 retry delays and remove dead fallback
+  ([`a57dc0c`](https://github.com/nachollorca/lmdk/commit/a57dc0c3478a6c5312a11ce93bd24aecd6775d02))
+
+### Features
+
+- Implement exponential backoff and retry logic for requests
+  ([`d91cc11`](https://github.com/nachollorca/lmdk/commit/d91cc117d945f83e28b4d73540e9b72df3e01755))
+
+
 ## v2.7.0 (2026-07-07)
 
 ### Features
