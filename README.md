@@ -95,6 +95,23 @@ response = complete(model=["mistral:nonexistent-model", model], prompt="Hi")
 </details>
 
 <details>
+<summary>Local models</summary>
+
+Most local model servers (llama.cpp, vLLM, Ollama, LM Studio, etc.) expose an OpenAI-compatible `/v1/chat/completions` API. You can direct requests to any local or self-hosted endpoint using the `local:` provider prefix and providing the host/port via the `@location` suffix:
+
+```python
+# Format: local:<model-id>@<host>[:<port>]
+response = complete(
+    model="local:Qwen3.6-27B-BF16@192.168.10.51:4000",
+    prompt="Hello!"
+)
+```
+
+- If the location has no scheme, `http://` is assumed.
+- If the server requires authentication, set the `LOCAL_API_KEY` environment variable, which is automatically sent as a `Bearer` token.
+</details>
+
+<details>
 <summary>Structured output</summary>
 
 ```python
