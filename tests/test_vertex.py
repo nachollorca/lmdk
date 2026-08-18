@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Sequence
+from typing import Literal
 from unittest.mock import MagicMock, patch
 
 from conftest import make_completion_request
@@ -282,6 +283,27 @@ class TestPydanticSchemaToVertex:
         schema = Ingredient.model_json_schema()
         result = VertexProvider._pydantic_schema_to_vertex(schema)
         assert result["properties"]["unit"]["default"] == ""
+
+    def test_string_enum_kept(self):
+        class Choice(BaseModel):
+            pick: Literal["a", "b"]
+
+        result = VertexProvider._pydantic_schema_to_vertex(Choice.model_json_schema())
+        assert result["properties"]["pick"] == {"type": "STRING", "enum": ["a", "b"]}
+
+    def test_non_string_enum_moved_to_description(self):
+        """Vertex 400s on enum with a non-STRING type, so it must not be sent."""
+
+        class Verdict(BaseModel):
+            ok: Literal[False, True]
+            score: Literal[1, 2, 3]
+
+        result = VertexProvider._pydantic_schema_to_vertex(Verdict.model_json_schema())
+        ok, score = result["properties"]["ok"], result["properties"]["score"]
+        assert "enum" not in ok and "enum" not in score
+        assert ok["type"] == "BOOLEAN" and score["type"] == "INTEGER"
+        assert ok["description"] == "Allowed values: false, true."
+        assert score["description"] == "Allowed values: 1, 2, 3."
 
 
 # ---------------------------------------------------------------------------

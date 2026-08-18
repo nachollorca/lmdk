@@ -1,5 +1,6 @@
 """Implements the provider to use models hosted in GCP Vertex API."""
 
+import json
 from collections.abc import Iterator
 
 from lmdk.datatypes import CompletionRequest
@@ -178,9 +179,20 @@ class VertexProvider(Provider):
         if "description" in node:
             result["description"] = node["description"]
 
-        # Enum values.
+        # Enum values. Vertex only accepts ``enum`` on STRING schemas, and only
+        # with string entries: ``{"type": "BOOLEAN", "enum": [false, true]}``
+        # (what ``Literal[False, True]`` compiles to) is rejected with HTTP 400.
+        # Stringifying the values would satisfy Vertex but break Pydantic
+        # ``Literal`` validation of the response, which does not coerce
+        # ``"true"`` to ``True``. So keep the real type and move the allowed
+        # values into the description, where the model still sees them.
         if "enum" in node:
-            result["enum"] = node["enum"]
+            if result.get("type") == "STRING":
+                result["enum"] = node["enum"]
+            else:
+                allowed = ", ".join(json.dumps(v) for v in node["enum"])
+                description = result.get("description", "")
+                result["description"] = f"{description} Allowed values: {allowed}.".strip()
 
         # Object properties.
         if "properties" in node:
