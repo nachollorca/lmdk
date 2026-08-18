@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v2.8.1 (2026-08-18)
+
+### Bug Fixes
+
+- **vertex**: Stringify enums so vertex does not crash when Literal is requested in output schema
+  ([`5e13942`](https://github.com/nachollorca/lmdk/commit/5e13942437b0d4ee628fbeca77bf70fecc4dbbe8))
+
+### Documentation
+
+- Document local model provider in README
+  ([`a1d4da8`](https://github.com/nachollorca/lmdk/commit/a1d4da89c21a0a300109998d1f7ae4b90e998f29))
+
+
 ## v2.8.0 (2026-07-16)
 
 ### Bug Fixes
