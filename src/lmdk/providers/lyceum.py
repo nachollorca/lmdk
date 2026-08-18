@@ -22,7 +22,7 @@ class LyceumProvider(LocalProvider):
     URL is fixed and the ``LYCEUM_API_KEY`` environment variable is required.
 
     ``thinking_effort`` is a no-op: Lyceum toggles reasoning through per-model
-    ``chat_template_kwargs`` (e.g. ``{"thinking": false}``) rather than a
+    ``chat_template_kwargs`` (e.g. ``{"thinking": False}``) rather than a
     top-level control, so pass those via ``generation_kwargs`` when needed.
     """
 
