@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.9.0 (2026-08-19)
+
+### Features
+
+- **bedrock**: Add AWS Bedrock provider for Anthropic models
+  ([`1d54d17`](https://github.com/nachollorca/lmdk/commit/1d54d17257f16656737d86307d40e626819cf37b))
+
+
 ## v2.8.1 (2026-08-18)
 
 ### Bug Fixes
