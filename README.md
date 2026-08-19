@@ -41,6 +41,8 @@ from lmdk import complete
 
 model = "mistral:mistral-small-2603"
 # supports locations as in "vertex:gemini-2.5-flash@europe-west4"
+# or "bedrock:eu.anthropic.claude-opus-5@eu-central-1" (region inferred from the
+# geo prefix when omitted)
 ```
 
 <details>
