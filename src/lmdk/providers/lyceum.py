@@ -7,19 +7,20 @@ Lyceum exposes the same OpenAI ``/chat/completions`` wire protocol as the
     complete("lyceum:moonshotai/kimi-k3", "Hello!")
 """
 
-from lmdk.providers.local import LocalProvider
+from lmdk.providers._chat_completions import ChatCompletionsProvider
 
 LYCEUM_BASE_URL = "https://api.lyceum.technology/api/v2/external/serverless"
 
 _API_KEY_ENV = "LYCEUM_API_KEY"
 
 
-class LyceumProvider(LocalProvider):
+class LyceumProvider(ChatCompletionsProvider):
     """Provider for Lyceum's serverless OpenAI-compatible endpoint.
 
-    Reuses :class:`~lmdk.providers.local.LocalProvider`'s payload building and
-    response parsing, overriding only the endpoint and authentication: the base
-    URL is fixed and the ``LYCEUM_API_KEY`` environment variable is required.
+    Reuses :class:`~lmdk.providers._chat_completions.ChatCompletionsProvider`'s
+    payload building and response parsing, overriding only the endpoint and
+    authentication: the base URL is fixed and the ``LYCEUM_API_KEY`` environment
+    variable is required.
 
     ``thinking_effort`` is a no-op: Lyceum toggles reasoning through per-model
     ``chat_template_kwargs`` (e.g. ``{"thinking": False}``) rather than a
