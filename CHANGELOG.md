@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.9.1 (2026-08-20)
+
+### Bug Fixes
+
+- **vertex**: Do not send thinkingLevel minimal to gemini-3.7-flash
+  ([`982cd01`](https://github.com/nachollorca/lmdk/commit/982cd01756b65bcb561d1880463564517d381169))
+
+
 ## v2.9.0 (2026-08-19)
 
 ### Features
