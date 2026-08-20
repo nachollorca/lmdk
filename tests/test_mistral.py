@@ -11,6 +11,8 @@ from lmdk.datatypes import CompletionRequest, Message, ThinkingEffort
 from lmdk.provider import RawResponse
 from lmdk.providers.mistral import MistralProvider
 
+MODEL_ID = "mistral-small-2603"
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -18,7 +20,7 @@ from lmdk.providers.mistral import MistralProvider
 
 def _make_request(
     *,
-    model_id: str = "mistral-small-2603",
+    model_id: str = MODEL_ID,
     prompt: Sequence[Message] | None = None,
     system_instruction: str | None = None,
     output_schema: type[BaseModel] | None = None,
@@ -118,19 +120,19 @@ class TestBuildPromptPayload:
 
 class TestBuildPayloadThinking:
     def test_no_reasoning_effort_when_none(self):
-        payload = MistralProvider._build_payload(_make_request())
+        payload = MistralProvider._build_payload(_make_request(), MODEL_ID)
         assert "reasoning_effort" not in payload
 
     def test_low_collapses_to_high(self):
-        payload = MistralProvider._build_payload(_make_request(thinking_effort="low"))
+        payload = MistralProvider._build_payload(_make_request(thinking_effort="low"), MODEL_ID)
         assert payload["reasoning_effort"] == "high"
 
     def test_medium_collapses_to_high(self):
-        payload = MistralProvider._build_payload(_make_request(thinking_effort="medium"))
+        payload = MistralProvider._build_payload(_make_request(thinking_effort="medium"), MODEL_ID)
         assert payload["reasoning_effort"] == "high"
 
     def test_high_maps_to_high(self):
-        payload = MistralProvider._build_payload(_make_request(thinking_effort="high"))
+        payload = MistralProvider._build_payload(_make_request(thinking_effort="high"), MODEL_ID)
         assert payload["reasoning_effort"] == "high"
 
     def test_explicit_reasoning_effort_overrides_thinking_effort(self):
@@ -141,7 +143,7 @@ class TestBuildPayloadThinking:
             thinking_effort="high",
             generation_kwargs={"reasoning_effort": "sentinel-override"},
         )
-        payload = MistralProvider._build_payload(request)
+        payload = MistralProvider._build_payload(request, MODEL_ID)
         assert payload["reasoning_effort"] == "sentinel-override"
 
     def test_drops_sampling_kwargs_when_reasoning(self):
@@ -149,13 +151,13 @@ class TestBuildPayloadThinking:
             thinking_effort="high",
             generation_kwargs={"temperature": 0, "top_p": 0.9},
         )
-        payload = MistralProvider._build_payload(request)
+        payload = MistralProvider._build_payload(request, MODEL_ID)
         assert "temperature" not in payload
         assert "top_p" not in payload
 
     def test_keeps_sampling_kwargs_when_not_reasoning(self):
         request = _make_request(generation_kwargs={"temperature": 0})
-        payload = MistralProvider._build_payload(request)
+        payload = MistralProvider._build_payload(request, MODEL_ID)
         assert payload["temperature"] == 0
 
 
@@ -182,10 +184,10 @@ class TestExtractText:
 
 class TestExtractThinking:
     def test_plain_string_returns_none(self):
-        assert MistralProvider._extract_thinking("hello") is None
+        assert MistralProvider._extract_thinking({"content": "hello"}) is None
 
     def test_none_returns_none(self):
-        assert MistralProvider._extract_thinking(None) is None
+        assert MistralProvider._extract_thinking({"content": None}) is None
 
     def test_list_extracts_thinking_chunks(self):
         content = [
@@ -193,11 +195,11 @@ class TestExtractThinking:
             {"type": "thinking", "thinking": [{"type": "text", "text": "step 2."}]},
             {"type": "text", "text": "answer"},
         ]
-        assert MistralProvider._extract_thinking(content) == "step 1. step 2."
+        assert MistralProvider._extract_thinking({"content": content}) == "step 1. step 2."
 
     def test_empty_thinking_returns_none(self):
         content = [{"type": "text", "text": "answer"}]
-        assert MistralProvider._extract_thinking(content) is None
+        assert MistralProvider._extract_thinking({"content": content}) is None
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +225,7 @@ class TestSendRequest:
         # Verify the POST call
         call_kwargs = mock_post.call_args
         payload = call_kwargs.kwargs.get("json") or call_kwargs[1]["json"]
-        assert payload["model"] == "mistral-small-2603"
+        assert payload["model"] == MODEL_ID
         assert "response_format" not in payload
 
     def test_generation_kwargs_forwarded(self):

@@ -1,4 +1,11 @@
-"""Implements the provider to use models hosted in the OpenAI API."""
+"""Implements the provider to use models hosted in the OpenAI API.
+
+This provider speaks OpenAI's Responses API (``input`` in, ``output[]`` out),
+which it is currently the only consumer of. If a second provider ever consumes
+this shape, extract the wire-format logic into a ``ResponsesProvider`` base the
+way ``_chat_completions.ChatCompletionsProvider`` does for
+``/chat/completions``. One implementation does not need an abstraction.
+"""
 
 from collections.abc import Iterator
 
