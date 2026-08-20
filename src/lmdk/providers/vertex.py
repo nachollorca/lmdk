@@ -104,15 +104,18 @@ class VertexProvider(Provider):
 
         Gemini 3 cannot fully disable thinking. ``"none"`` maps to the practical
         minimum: ``"minimal"`` on Flash / Flash-Lite models, ``"low"`` on Pro
-        models (which reject ``"minimal"``). Returns ``None`` for non-Gemini-3
-        models so legacy ``thinkingBudget`` behaviour is unchanged.
+        models and on ``gemini-3.7-flash`` (both reject ``"minimal"`` with HTTP
+        400; Google lists minimal for 3.7 Flash as a fast follow). Returns
+        ``None`` for non-Gemini-3 models so legacy ``thinkingBudget`` behaviour
+        is unchanged.
         """
         model, _ = cls._parse_model_id(request.model_id)
         if not model.startswith("gemini-3"):
             return None
 
         if request.thinking_effort == "none":
-            return "low" if "pro" in model else "minimal"
+            no_minimal = "pro" in model or model.startswith("gemini-3.7-flash")
+            return "low" if no_minimal else "minimal"
         return request.thinking_effort
 
     @classmethod
