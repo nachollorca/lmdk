@@ -1,4 +1,11 @@
-"""Implements the provider to use models hosted in Anthropic API."""
+"""Implements the provider to use models hosted in Anthropic API.
+
+This provider speaks Anthropic's Messages API. ``bedrock`` reuses it by plain
+subclassing (same payload shape, different envelope), which is cheaper than an
+abstract base. If a third provider consumes this shape, or if subclassing a
+concrete provider stops fitting, extract a ``MessagesProvider`` base the way
+``_chat_completions.ChatCompletionsProvider`` does for ``/chat/completions``.
+"""
 
 from collections.abc import Iterator
 from typing import Any
