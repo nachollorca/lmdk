@@ -2,6 +2,45 @@
 
 <!-- version list -->
 
+## v2.10.0 (2026-08-20)
+
+### Bug Fixes
+
+- **providers**: Request strict structured output in chat-completions base
+  ([`b0ba286`](https://github.com/nachollorca/lmdk/commit/b0ba28635516076a565ed081c48f51d5db5c845e))
+
+### Chores
+
+- Fix the spelling error in docstring
+  ([`dff977f`](https://github.com/nachollorca/lmdk/commit/dff977f5982238612c8457121a8c37920b127eaf))
+
+### Documentation
+
+- Document gateway providers and when to extract API-shape bases
+  ([`339d3ad`](https://github.com/nachollorca/lmdk/commit/339d3ad3bf5773c61d59bda49c926a1bece989ca))
+
+### Features
+
+- **openrouter**: Add OpenRouter provider on a shared chat-completions base
+  ([`bab2262`](https://github.com/nachollorca/lmdk/commit/bab226284df0411c14564d60febb354985e5e43f))
+
+- **provider**: Add LyceumProvider for serverless OpenAI-compatible API
+  ([`74b07a7`](https://github.com/nachollorca/lmdk/commit/74b07a7d3d56db757044e1f0c7e3bfe839e5bbbf))
+
+### Refactoring
+
+- **mistral**: Inherit from ChatCompletionsProvider
+  ([`1ea057f`](https://github.com/nachollorca/lmdk/commit/1ea057f73e328f3e5d88a5eeb147d27fe1b37a25))
+
+- **providers**: Drive chat-completions endpoints from a base_url attribute
+  ([`956113f`](https://github.com/nachollorca/lmdk/commit/956113fcd8642f1e3a1d799d1c071c191438b464))
+
+### Testing
+
+- **lyceum**: Cover endpoint, auth, structured output and streaming
+  ([`e7339e5`](https://github.com/nachollorca/lmdk/commit/e7339e5fc030a423db2fab9672871e704905e066))
+
+
 ## v2.9.1 (2026-08-20)
 
 ### Bug Fixes
