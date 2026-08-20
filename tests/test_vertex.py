@@ -344,6 +344,11 @@ class TestBuildPayload:
         payload = VertexProvider._build_payload(request)
         assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
 
+    def test_thinking_effort_none_maps_to_low_for_gemini_3_7_flash(self):
+        request = _make_request(model_id="gemini-3.7-flash")
+        payload = VertexProvider._build_payload(request)
+        assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
+
     def test_thinking_config_can_be_set_via_generation_kwargs(self):
         request = _make_request(generation_kwargs={"thinkingConfig": {"thinkingLevel": "low"}})
         payload = VertexProvider._build_payload(request)
