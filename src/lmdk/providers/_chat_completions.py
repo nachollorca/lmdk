@@ -18,6 +18,7 @@ from collections.abc import Iterator
 
 from lmdk.datatypes import CompletionRequest
 from lmdk.provider import Provider, RawResponse
+from lmdk.providers._schema import prepare_schema
 
 
 class ChatCompletionsProvider(Provider):
@@ -67,6 +68,10 @@ class ChatCompletionsProvider(Provider):
         widely and most ignore it unless the caller passes server-specific
         kwargs via ``generation_kwargs``. Subclasses that do support a reasoning
         control (e.g. Mistral) override this and patch the payload.
+
+        Structured output uses the strict JSON-Schema subset (see
+        ``_schema.prepare_schema``) that hosted OpenAI-compatible APIs require;
+        servers that do not implement ``strict`` simply ignore the flag.
         """
         payload: dict = {
             "model": model,
@@ -80,7 +85,8 @@ class ChatCompletionsProvider(Provider):
                 "type": "json_schema",
                 "json_schema": {
                     "name": request.output_schema.__name__,
-                    "schema": request.output_schema.model_json_schema(),
+                    "schema": prepare_schema(request.output_schema.model_json_schema()),
+                    "strict": True,
                 },
             }
         return payload
