@@ -18,9 +18,8 @@ class LyceumProvider(ChatCompletionsProvider):
     """Provider for Lyceum's serverless OpenAI-compatible endpoint.
 
     Reuses :class:`~lmdk.providers._chat_completions.ChatCompletionsProvider`'s
-    payload building and response parsing, overriding only the endpoint and
-    authentication: the base URL is fixed and the ``LYCEUM_API_KEY`` environment
-    variable is required.
+    payload building and response parsing, setting only the fixed ``base_url``
+    and the ``LYCEUM_API_KEY`` bearer authentication.
 
     ``thinking_effort`` is a no-op: Lyceum toggles reasoning through per-model
     ``chat_template_kwargs`` (e.g. ``{"thinking": False}``) rather than a
@@ -28,18 +27,9 @@ class LyceumProvider(ChatCompletionsProvider):
     """
 
     required_env = _API_KEY_ENV
+    base_url = LYCEUM_BASE_URL
 
     @classmethod
     def _build_auth_headers(cls, credentials: dict[str, str]) -> dict:
         """Return Lyceum Bearer-token authentication headers."""
         return {"Authorization": f"Bearer {credentials[_API_KEY_ENV]}"}
-
-    @classmethod
-    def _parse_model_id(cls, model_id: str) -> tuple[str, str]:
-        """Use the model id verbatim; the endpoint is fixed for Lyceum."""
-        return model_id, LYCEUM_BASE_URL
-
-    @classmethod
-    def _build_url(cls, location: str) -> str:
-        """Return the fixed Lyceum chat-completions URL."""
-        return f"{location.rstrip('/')}/chat/completions"

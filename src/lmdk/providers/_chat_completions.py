@@ -1,15 +1,12 @@
 """Shared base for providers speaking the OpenAI ``/chat/completions`` protocol.
 
-Many providers -- local model servers (llama.cpp, vLLM, Ollama, LM Studio, …)
-as well as hosted gateways (Lyceum, OpenRouter, …) -- expose the exact same
-OpenAI ``/chat/completions`` wire protocol: ``messages`` in, ``choices[]`` out.
-This base class implements that protocol end to end (payload building, response
-parsing, streaming) and leaves only the endpoint- and auth-specific bits to
-subclasses via three hooks:
-
-    - ``_build_auth_headers`` -- provider authentication
-    - ``_parse_model_id``     -- split the model identifier into ``(model, location)``
-    - ``_build_url``          -- turn a ``location`` into a chat-completions URL
+Many providers -- hosted APIs (Mistral) and gateways (Lyceum, OpenRouter, …) as
+well as local model servers (llama.cpp, vLLM, Ollama, LM Studio, …) -- expose
+the exact same OpenAI ``/chat/completions`` wire protocol: ``messages`` in,
+``choices[]`` out. This base class implements that protocol end to end (payload
+building, response parsing, streaming). A subclass with a fixed endpoint only
+needs ``base_url`` and ``_build_auth_headers``; providers whose endpoint varies
+per call override ``_parse_model_id`` / ``_build_url``.
 
 Thinking / reasoning is entirely backend-dependent: whether ``thinking_effort``
 has any effect, and whether responses expose ``reasoning_content``, thinking
@@ -17,7 +14,6 @@ chunks, or token breakdowns, depends on the server, model, and how it was
 deployed. This base class only parses fields when they are present.
 """
 
-from abc import abstractmethod
 from collections.abc import Iterator
 
 from lmdk.datatypes import CompletionRequest
@@ -31,24 +27,28 @@ class ChatCompletionsProvider(Provider):
     OpenAI's Chat Completions API (``messages`` in, ``choices[]`` out), so any
     server or gateway implementing that wire protocol works unchanged.
 
-    Subclasses implement ``_build_auth_headers``, ``_parse_model_id`` and
-    ``_build_url`` to point the shared protocol logic at a concrete endpoint.
+    Subclasses set ``base_url`` (everything up to but excluding
+    ``/chat/completions``) and implement ``_build_auth_headers``. Providers whose
+    endpoint is not fixed (e.g. ``local``) override ``_parse_model_id`` and
+    ``_build_url`` instead.
     """
 
+    # Fixed endpoint, up to but excluding ``/chat/completions``.
+    base_url: str = ""
+
     @classmethod
-    @abstractmethod
     def _parse_model_id(cls, model_id: str) -> tuple[str, str]:
         """Split ``model_id`` into ``(model, location)``.
 
-        ``location`` is passed to ``_build_url`` to construct the endpoint.
+        The default treats the whole id as the model and the fixed ``base_url``
+        as the location, which ``_build_url`` turns into an endpoint.
         """
-        ...
+        return model_id, cls.base_url
 
     @classmethod
-    @abstractmethod
     def _build_url(cls, location: str) -> str:
         """Build the chat-completions URL from a ``location``."""
-        ...
+        return f"{location.rstrip('/')}/chat/completions"
 
     @classmethod
     def _build_prompt_payload(cls, request: CompletionRequest) -> list[dict]:
@@ -65,7 +65,8 @@ class ChatCompletionsProvider(Provider):
 
         ``thinking_effort`` is not mapped to any wire field here; backends vary
         widely and most ignore it unless the caller passes server-specific
-        kwargs via ``generation_kwargs``.
+        kwargs via ``generation_kwargs``. Subclasses that do support a reasoning
+        control (e.g. Mistral) override this and patch the payload.
         """
         payload: dict = {
             "model": model,
@@ -133,12 +134,17 @@ class ChatCompletionsProvider(Provider):
 
     @staticmethod
     def _extract_thinking_tokens(usage: dict) -> int:
-        """Extract reasoning/thinking token count from usage metadata when present."""
+        """Extract reasoning/thinking token count from usage metadata when present.
+
+        Looked up in ``completion_tokens_details`` first (OpenAI's shape), then
+        at the top level of ``usage`` (used by some servers, e.g. Mistral).
+        """
         details = usage.get("completion_tokens_details") or {}
-        for key in ("reasoning_tokens", "thinking_tokens"):
-            value = details.get(key)
-            if isinstance(value, int):
-                return value
+        for source in (details, usage):
+            for key in ("reasoning_tokens", "thinking_tokens"):
+                value = source.get(key)
+                if isinstance(value, int):
+                    return value
         return 0
 
     @classmethod

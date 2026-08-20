@@ -33,12 +33,13 @@ class OpenrouterProvider(ChatCompletionsProvider):
     """Provider for OpenRouter's hosted OpenAI-compatible gateway.
 
     Reuses :class:`~lmdk.providers._chat_completions.ChatCompletionsProvider`'s
-    payload building and response parsing, overriding only the fixed endpoint
+    payload building and response parsing, setting only the fixed ``base_url``
     and the ``OPENROUTER_API_KEY`` bearer authentication. Optional ranking
     headers are added when the corresponding environment variables are set.
     """
 
     required_env = _API_KEY_ENV
+    base_url = OPENROUTER_BASE_URL
 
     @classmethod
     def _build_auth_headers(cls, credentials: dict[str, str]) -> dict:
@@ -49,13 +50,3 @@ class OpenrouterProvider(ChatCompletionsProvider):
         if app_title := os.getenv(_APP_TITLE_ENV):
             headers["X-Title"] = app_title
         return headers
-
-    @classmethod
-    def _parse_model_id(cls, model_id: str) -> tuple[str, str]:
-        """Use the model id verbatim; the endpoint is fixed for OpenRouter."""
-        return model_id, OPENROUTER_BASE_URL
-
-    @classmethod
-    def _build_url(cls, location: str) -> str:
-        """Return the fixed OpenRouter chat-completions URL."""
-        return f"{location.rstrip('/')}/chat/completions"
