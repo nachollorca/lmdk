@@ -5,9 +5,11 @@ import json
 import struct
 from unittest.mock import MagicMock, patch
 
+import pytest
 from conftest import make_completion_request
 from pydantic import BaseModel
 
+from lmdk.errors import TruncatedResponseError
 from lmdk.providers.bedrock import (
     _SCHEMA_TOOL,
     BEDROCK_ANTHROPIC_VERSION,
@@ -149,3 +151,21 @@ class TestStreamResponse:
                 )
             )
         assert "".join(tokens) == "hello"
+
+
+class TestTruncation:
+    def test_max_tokens_stop_reason_raises_instead_of_empty_tool_input(self):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {
+            "stop_reason": "max_tokens",
+            "content": [{"type": "tool_use", "name": _SCHEMA_TOOL, "input": {}}],
+            "usage": {"input_tokens": 11, "output_tokens": 32000},
+        }
+        with (
+            patch("lmdk.provider.requests.post", return_value=resp),
+            pytest.raises(TruncatedResponseError, match="max_tokens"),
+        ):
+            BedrockProvider._send_request(
+                make_completion_request(model_id=MODEL, output_schema=Person), CREDENTIALS
+            )
