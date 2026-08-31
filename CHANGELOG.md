@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.10.1 (2026-08-31)
+
+### Bug Fixes
+
+- **anthropic**: Crash completion if max output tokens reached on structured output
+  ([`381cffb`](https://github.com/nachollorca/lmdk/commit/381cffb9eff8a5c63e1230652ee9304adf484d17))
+
+
 ## v2.10.0 (2026-08-20)
 
 ### Bug Fixes
