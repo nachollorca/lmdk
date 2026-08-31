@@ -28,10 +28,29 @@ BEDROCK_ANTHROPIC_VERSION = "bedrock-2023-05-31"
 # Name of the synthetic tool used to emulate structured output.
 _SCHEMA_TOOL = "emit_structured_output"
 
+# Placeholder key from Claude's tool-call training format. Claude occasionally
+# nests the whole argument object under it instead of emitting the fields at the
+# top level, which would otherwise surface as a schema-validation error.
+_PLACEHOLDER_KEY = "$PARAMETER_NAME"
+
 # Default region per geo prefix of the model ID (``eu.anthropic.claude-opus-5``).
 # A geo inference ID must be called from a region inside that geography.
 _GEO_REGIONS = {"eu": "eu-west-1", "us": "us-east-1", "au": "ap-southeast-2"}
 DEFAULT_REGION = "us-east-1"
+
+
+def _unwrap_placeholder(payload: dict) -> dict:
+    """Return the real arguments when Claude nests them under ``$PARAMETER_NAME``.
+
+    Any other shape is left alone, so a schema that genuinely declares that key
+    still round-trips.
+    """
+    # ponytail: matches only the single-key placeholder wrapper, the shape Claude
+    # actually emits. Generalize against the request schema's properties if other
+    # wrapper keys show up.
+    if list(payload) == [_PLACEHOLDER_KEY] and isinstance(payload[_PLACEHOLDER_KEY], dict):
+        return payload[_PLACEHOLDER_KEY]
+    return payload
 
 
 class BedrockProvider(AnthropicProvider):
@@ -102,7 +121,7 @@ class BedrockProvider(AnthropicProvider):
         """Extract the answer, unwrapping the structured-output tool call."""
         for block in body.get("content", []):
             if block.get("type") == "tool_use" and block.get("name") == _SCHEMA_TOOL:
-                return json.dumps(block["input"])
+                return json.dumps(_unwrap_placeholder(block["input"]))
         return super()._extract_text(body)
 
     # ── Provider interface implementation ─────────────────────────────────
