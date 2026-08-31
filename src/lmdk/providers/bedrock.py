@@ -116,6 +116,7 @@ class BedrockProvider(AnthropicProvider):
         )
 
         body = response.json()
+        cls._check_truncated(body)
         usage = body.get("usage", {})
         return RawResponse(
             content=cls._extract_text(body),

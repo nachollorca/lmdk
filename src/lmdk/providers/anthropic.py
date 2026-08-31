@@ -11,11 +11,16 @@ from collections.abc import Iterator
 from typing import Any
 
 from lmdk.datatypes import CompletionRequest
+from lmdk.errors import TruncatedResponseError
 from lmdk.provider import Provider, RawResponse
 
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
-DEFAULT_MAX_TOKENS = 4096
+
+# Anthropic requires ``max_tokens``, so a default is unavoidable. Current Claude
+# models cap output at 64k; legacy ones (3.x) cap at 4k-8k and reject anything
+# larger, so pass ``max_tokens`` explicitly when calling those.
+DEFAULT_MAX_TOKENS = 32000
 _SAMPLING_RESTRICTED_KWARGS = {"temperature", "top_p", "top_k"}
 
 # Sampling controls Anthropic rejects when ``thinking`` is enabled.
@@ -90,7 +95,7 @@ class AnthropicProvider(Provider):
         """Build the full request payload for the Anthropic API.
 
         ``max_tokens`` is required by the Anthropic API. If not provided in
-        ``generation_kwargs``, a default of 4096 is used.
+        ``generation_kwargs``, ``DEFAULT_MAX_TOKENS`` is used.
         """
         generation_kwargs = cls._normalize_generation_kwargs(request)
         max_tokens = generation_kwargs.pop("max_tokens", DEFAULT_MAX_TOKENS)
@@ -157,6 +162,18 @@ class AnthropicProvider(Provider):
         return "".join(parts)
 
     @classmethod
+    def _check_truncated(cls, body: dict) -> None:
+        """Raise if generation was cut off by the ``max_tokens`` budget."""
+        if body.get("stop_reason") == "max_tokens":
+            usage = body.get("usage", {})
+            raise TruncatedResponseError(
+                "Response truncated: the model hit the max_tokens budget "
+                f"after {usage.get('output_tokens', 0)} output tokens "
+                f"(default {DEFAULT_MAX_TOKENS}). Raise it via "
+                'generation_kwargs={"max_tokens": ...} or ask for a shorter answer.'
+            )
+
+    @classmethod
     def _extract_thinking(cls, body: dict) -> str | None:
         """Extract thinking content from ``thinking`` blocks in the response."""
         parts = []
@@ -175,6 +192,7 @@ class AnthropicProvider(Provider):
         )
 
         body = response.json()
+        cls._check_truncated(body)
         usage = body.get("usage", {})
         return RawResponse(
             content=cls._extract_text(body),

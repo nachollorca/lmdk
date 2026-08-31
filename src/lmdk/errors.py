@@ -58,6 +58,16 @@ class ServiceUnavailableError(ProviderError):
     """Raised for 503 responses -- service overloaded or unavailable."""
 
 
+class TruncatedResponseError(LMDKError):
+    """Raised when the model stopped mid-answer because ``max_tokens`` ran out.
+
+    Surfaced instead of letting a partial response through: structured output
+    would otherwise fail as a confusing schema-validation error (Anthropic
+    returns a truncated tool call with a partially parsed, often empty,
+    ``input``) rather than as the token-budget problem it is.
+    """
+
+
 class AllModelsFailedError(LMDKError):
     """Raised when every model in a fallback list fails.
 
