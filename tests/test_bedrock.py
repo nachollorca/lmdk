@@ -117,6 +117,22 @@ class TestSendRequest:
         assert (raw.content, raw.thinking) == ("hi", "hmm")
         assert (raw.input_tokens, raw.output_tokens, raw.thinking_tokens) == (11, 7, 3)
 
+    def test_placeholder_wrapper_is_unwrapped(self):
+        resp = self._mock_response(
+            [
+                {
+                    "type": "tool_use",
+                    "name": _SCHEMA_TOOL,
+                    "input": {"$PARAMETER_NAME": {"name": "Ada", "age": 36}},
+                }
+            ]
+        )
+        with patch("lmdk.provider.requests.post", return_value=resp):
+            raw = BedrockProvider._send_request(
+                make_completion_request(model_id=MODEL, output_schema=Person), CREDENTIALS
+            )
+        assert Person.model_validate_json(raw.content) == Person(name="Ada", age=36)
+
     def test_tool_use_is_serialized_as_json(self):
         resp = self._mock_response(
             [{"type": "tool_use", "name": _SCHEMA_TOOL, "input": {"name": "Ada", "age": 36}}]
