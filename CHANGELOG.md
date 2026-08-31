@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.10.2 (2026-08-31)
+
+### Bug Fixes
+
+- Do the extra shenigans for bedrocks stupid forced tools
+  ([`db784fb`](https://github.com/nachollorca/lmdk/commit/db784fb4cb6f9bc5a2bd4660159f53ea104e9b3f))
+
+
 ## v2.10.1 (2026-08-31)
 
 ### Bug Fixes
