@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.10.3 (2026-08-31)
+
+### Bug Fixes
+
+- **bedrock**: Unwrap any $-prefixed tool-argument placeholder
+  ([`c179f9b`](https://github.com/nachollorca/lmdk/commit/c179f9bef32684ee2ab4a6ef229a3caabe8fb1b2))
+
+
 ## v2.10.2 (2026-08-31)
 
 ### Bug Fixes
