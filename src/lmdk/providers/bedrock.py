@@ -28,10 +28,11 @@ BEDROCK_ANTHROPIC_VERSION = "bedrock-2023-05-31"
 # Name of the synthetic tool used to emulate structured output.
 _SCHEMA_TOOL = "emit_structured_output"
 
-# Placeholder key from Claude's tool-call training format. Claude occasionally
-# nests the whole argument object under it instead of emitting the fields at the
-# top level, which would otherwise surface as a schema-validation error.
-_PLACEHOLDER_KEY = "$PARAMETER_NAME"
+# Placeholder keys from Claude's tool-call training format (``$PARAMETER_NAME``,
+# ``$PARAMETER_VALUE``, ...). Claude occasionally nests the whole argument object
+# under one of them instead of emitting the fields at the top level, which would
+# otherwise surface as a schema-validation error.
+_PLACEHOLDER_PREFIX = "$"
 
 # Default region per geo prefix of the model ID (``eu.anthropic.claude-opus-5``).
 # A geo inference ID must be called from a region inside that geography.
@@ -40,16 +41,14 @@ DEFAULT_REGION = "us-east-1"
 
 
 def _unwrap_placeholder(payload: dict) -> dict:
-    """Return the real arguments when Claude nests them under ``$PARAMETER_NAME``.
+    """Return the real arguments when Claude nests them under a ``$`` placeholder.
 
-    Any other shape is left alone, so a schema that genuinely declares that key
-    still round-trips.
+    Any other shape is left alone.
     """
-    # ponytail: matches only the single-key placeholder wrapper, the shape Claude
-    # actually emits. Generalize against the request schema's properties if other
-    # wrapper keys show up.
-    if list(payload) == [_PLACEHOLDER_KEY] and isinstance(payload[_PLACEHOLDER_KEY], dict):
-        return payload[_PLACEHOLDER_KEY]
+    if len(payload) == 1:
+        key, value = next(iter(payload.items()))
+        if key.startswith(_PLACEHOLDER_PREFIX) and isinstance(value, dict):
+            return value
     return payload
 
 

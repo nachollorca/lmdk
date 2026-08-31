@@ -117,15 +117,10 @@ class TestSendRequest:
         assert (raw.content, raw.thinking) == ("hi", "hmm")
         assert (raw.input_tokens, raw.output_tokens, raw.thinking_tokens) == (11, 7, 3)
 
-    def test_placeholder_wrapper_is_unwrapped(self):
+    @pytest.mark.parametrize("key", ["$PARAMETER_NAME", "$PARAMETER_VALUE"])
+    def test_placeholder_wrapper_is_unwrapped(self, key):
         resp = self._mock_response(
-            [
-                {
-                    "type": "tool_use",
-                    "name": _SCHEMA_TOOL,
-                    "input": {"$PARAMETER_NAME": {"name": "Ada", "age": 36}},
-                }
-            ]
+            [{"type": "tool_use", "name": _SCHEMA_TOOL, "input": {key: {"name": "Ada", "age": 36}}}]
         )
         with patch("lmdk.provider.requests.post", return_value=resp):
             raw = BedrockProvider._send_request(
