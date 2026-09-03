@@ -6,7 +6,7 @@ from typing import Literal
 from unittest.mock import MagicMock, patch
 
 from conftest import make_completion_request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from lmdk.datatypes import AssistantMessage, CompletionRequest, Message, ThinkingEffort, UserMessage
 from lmdk.provider import RawResponse
@@ -304,6 +304,38 @@ class TestPydanticSchemaToVertex:
         assert ok["type"] == "BOOLEAN" and score["type"] == "INTEGER"
         assert ok["description"] == "Allowed values: false, true."
         assert score["description"] == "Allowed values: 1, 2, 3."
+
+    def test_optional_field_typed_and_nullable(self):
+        """``T | None`` must keep its type; Vertex marks optionality with ``nullable``."""
+
+        class Note(BaseModel):
+            text: str | None = Field(default=None, description="Free text.")
+
+        result = VertexProvider._pydantic_schema_to_vertex(Note.model_json_schema())
+        assert result["properties"]["text"] == {
+            "type": "STRING",
+            "description": "Free text.",
+            "nullable": True,
+            "default": None,
+        }
+
+    def test_optional_nested_model_ref_resolved(self):
+        class Wrapper(BaseModel):
+            person: Person | None = None
+
+        result = VertexProvider._pydantic_schema_to_vertex(Wrapper.model_json_schema())
+        person = result["properties"]["person"]
+        assert person["type"] == "OBJECT"
+        assert person["nullable"] is True
+        assert "name" in person["properties"]
+
+    def test_real_union_keeps_anyof_members(self):
+        class Value(BaseModel):
+            v: int | str
+
+        result = VertexProvider._pydantic_schema_to_vertex(Value.model_json_schema())
+        assert result["properties"]["v"]["anyOf"] == [{"type": "INTEGER"}, {"type": "STRING"}]
+        assert "nullable" not in result["properties"]["v"]
 
 
 # ---------------------------------------------------------------------------
