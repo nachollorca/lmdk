@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.10.4 (2026-09-03)
+
+### Bug Fixes
+
+- **vertex**: Make sure pydantic optionals are passed properly
+  ([`c2803ea`](https://github.com/nachollorca/lmdk/commit/c2803ea961ff14f276f4f3fcadcd87504501bcb8))
+
+
 ## v2.10.3 (2026-08-31)
 
 ### Bug Fixes
