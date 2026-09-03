@@ -182,20 +182,13 @@ class VertexProvider(Provider):
         if "description" in node:
             result["description"] = node["description"]
 
-        # Enum values. Vertex only accepts ``enum`` on STRING schemas, and only
-        # with string entries: ``{"type": "BOOLEAN", "enum": [false, true]}``
-        # (what ``Literal[False, True]`` compiles to) is rejected with HTTP 400.
-        # Stringifying the values would satisfy Vertex but break Pydantic
-        # ``Literal`` validation of the response, which does not coerce
-        # ``"true"`` to ``True``. So keep the real type and move the allowed
-        # values into the description, where the model still sees them.
+        # Unions. See ``_convert_union``.
+        if "anyOf" in node:
+            result = cls._convert_union(node, result, defs)
+
+        # Enum values. See ``_convert_enum``.
         if "enum" in node:
-            if result.get("type") == "STRING":
-                result["enum"] = node["enum"]
-            else:
-                allowed = ", ".join(json.dumps(v) for v in node["enum"])
-                description = result.get("description", "")
-                result["description"] = f"{description} Allowed values: {allowed}.".strip()
+            cls._convert_enum(node, result)
 
         # Object properties.
         if "properties" in node:
@@ -214,6 +207,43 @@ class VertexProvider(Provider):
             result["default"] = node["default"]
 
         return result
+
+    @classmethod
+    def _convert_union(cls, node: dict, result: dict, defs: dict) -> dict:
+        """Convert ``anyOf`` unions.
+
+        Pydantic emits ``anyOf`` for ``T | None`` and for real unions. Vertex
+        expresses optionality with a ``nullable`` flag, so collapse the ``None``
+        member into it and keep the remaining member(s) typed: without this the
+        property ships with no type at all.
+        """
+        options = [o for o in node["anyOf"] if o.get("type") != "null"]
+        if len(options) == 1:
+            result = {**cls._convert_schema_node(options[0], defs), **result}
+        elif options:
+            result["anyOf"] = [cls._convert_schema_node(o, defs) for o in options]
+        if len(options) < len(node["anyOf"]):
+            result["nullable"] = True
+        return result
+
+    @classmethod
+    def _convert_enum(cls, node: dict, result: dict) -> None:
+        """Convert ``enum`` values.
+
+        Vertex only accepts ``enum`` on STRING schemas, and only with string
+        entries: ``{"type": "BOOLEAN", "enum": [false, true]}`` (what
+        ``Literal[False, True]`` compiles to) is rejected with HTTP 400.
+        Stringifying the values would satisfy Vertex but break Pydantic
+        ``Literal`` validation of the response, which does not coerce ``"true"``
+        to ``True``. So keep the real type and move the allowed values into the
+        description, where the model still sees them.
+        """
+        if result.get("type") == "STRING":
+            result["enum"] = node["enum"]
+        else:
+            allowed = ", ".join(json.dumps(v) for v in node["enum"])
+            description = result.get("description", "")
+            result["description"] = f"{description} Allowed values: {allowed}.".strip()
 
     @classmethod
     def _build_payload(cls, request: CompletionRequest) -> dict:
