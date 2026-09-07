@@ -66,13 +66,17 @@ class _CompletionTelemetry:
                 response.thinking_tokens,
             )
         if self._capture_content:
+            parts: list[dict[str, str]] = []
+            if response.thinking:
+                parts.append({"type": "reasoning", "content": response.thinking})
+            parts.append({"type": "text", "content": response.content})
             self._span.set_attribute(
                 "gen_ai.output.messages",
                 json.dumps(
                     [
                         {
                             "role": "assistant",
-                            "parts": [{"type": "text", "content": response.content}],
+                            "parts": parts,
                         }
                     ]
                 ),

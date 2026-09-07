@@ -138,7 +138,9 @@ class VertexProvider(Provider):
 
         thinking_level = cls._vertex_thinking_level(request)
         if thinking_level is not None:
-            config.setdefault("thinkingConfig", {"thinkingLevel": thinking_level})
+            config.setdefault(
+                "thinkingConfig", {"thinkingLevel": thinking_level, "includeThoughts": True}
+            )
 
         if request.output_schema:
             config["responseMimeType"] = "application/json"

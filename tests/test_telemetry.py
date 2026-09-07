@@ -256,6 +256,29 @@ def test_content_mode_records_prompt_system_instruction_and_response(monkeypatch
     assert "lmdk.output.value" not in span.attributes
 
 
+def test_content_mode_records_thinking_as_reasoning_part(monkeypatch, otel_setup):
+    span_exporter, _ = otel_setup
+    monkeypatch.setenv("LMDK_TELEMETRY", "content")
+
+    with traced_completion(
+        FakeProvider, "fake", "model", _request(), fallback_index=0
+    ) as telemetry:
+        telemetry.record_response(
+            CompletionResponse(content="ok", input_tokens=1, output_tokens=2, thinking="hmm")
+        )
+
+    span = span_exporter.get_finished_spans()[0]
+    assert json.loads(span.attributes["gen_ai.output.messages"]) == [
+        {
+            "role": "assistant",
+            "parts": [
+                {"type": "reasoning", "content": "hmm"},
+                {"type": "text", "content": "ok"},
+            ],
+        }
+    ]
+
+
 class _Summary(BaseModel):
     summary: str
 
