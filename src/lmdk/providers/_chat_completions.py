@@ -128,9 +128,10 @@ class ChatCompletionsProvider(Provider):
         Backends that do not return reasoning fields always yield ``None``
         regardless of ``thinking_effort``.
         """
-        reasoning = message.get("reasoning_content")
-        if isinstance(reasoning, str) and reasoning:
-            return reasoning
+        for key in ("reasoning_content", "reasoning"):
+            reasoning = message.get(key)
+            if isinstance(reasoning, str) and reasoning:
+                return reasoning
 
         content = message.get("content")
         if isinstance(content, list):
