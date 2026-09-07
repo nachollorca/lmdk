@@ -212,6 +212,10 @@ class TestExtractThinking:
         message = {"content": "answer", "reasoning_content": "let me think..."}
         assert LocalProvider._extract_thinking(message) == "let me think..."
 
+    def test_reasoning_field(self):
+        message = {"content": "answer", "reasoning": "let me think..."}
+        assert LocalProvider._extract_thinking(message) == "let me think..."
+
     def test_list_thinking_chunks(self):
         message = {
             "content": [

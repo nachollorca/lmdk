@@ -92,6 +92,28 @@ class TestSendRequest:
         url = mock_post.call_args.args[0]
         assert url == "https://openrouter.ai/api/v1/chat/completions"
 
+    def test_send_request_with_reasoning(self, monkeypatch):
+        monkeypatch.delenv("OPENROUTER_SITE_URL", raising=False)
+        monkeypatch.delenv("OPENROUTER_APP_TITLE", raising=False)
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {
+            "choices": [{"message": {"content": "42", "reasoning": "thinking step by step"}}],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 20,
+                "completion_tokens_details": {"reasoning_tokens": 15},
+            },
+        }
+        with patch("lmdk.provider.requests.post", return_value=resp):
+            result = OpenrouterProvider._send_request(
+                _make_request(), credentials={"OPENROUTER_API_KEY": "secret"}
+            )
+
+        assert result.content == "42"
+        assert result.thinking == "thinking step by step"
+        assert result.thinking_tokens == 15
+
     def test_stream_response(self, monkeypatch):
         monkeypatch.delenv("OPENROUTER_SITE_URL", raising=False)
         monkeypatch.delenv("OPENROUTER_APP_TITLE", raising=False)
