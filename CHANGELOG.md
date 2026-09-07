@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v2.11.1 (2026-09-07)
+
+### Bug Fixes
+
+- **completions**: Get reasoning no matter what stupid key they decided to use for it bc not a soul
+  would respect a convention even if their mothers life is on the line
+  ([`0c7a7b4`](https://github.com/nachollorca/lmdk/commit/0c7a7b4da21a04b19a4b9c51bc1699795a221ff1))
+
+### Testing
+
+- **vertex**: Account for the `includeThoughts` field
+  ([`2fbbe72`](https://github.com/nachollorca/lmdk/commit/2fbbe72f3e8deb79dcbf7ae2fb1f589959309aea))
+
+
 ## v2.11.0 (2026-09-07)
 
 ### Bug Fixes
