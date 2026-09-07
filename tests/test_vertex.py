@@ -364,22 +364,34 @@ class TestBuildPayload:
     def test_thinking_effort_none_maps_to_minimal_for_gemini_3_flash(self):
         request = _make_request(model_id="gemini-3.5-flash")
         payload = VertexProvider._build_payload(request)
-        assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
+        assert payload["generationConfig"]["thinkingConfig"] == {
+            "thinkingLevel": "minimal",
+            "includeThoughts": True,
+        }
 
     def test_thinking_effort_none_maps_to_minimal_for_gemini_3_flash_lite(self):
         request = _make_request(model_id="gemini-3.1-flash-lite")
         payload = VertexProvider._build_payload(request)
-        assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
+        assert payload["generationConfig"]["thinkingConfig"] == {
+            "thinkingLevel": "minimal",
+            "includeThoughts": True,
+        }
 
     def test_thinking_effort_none_maps_to_low_for_gemini_3_pro(self):
         request = _make_request(model_id="gemini-3.1-pro-preview")
         payload = VertexProvider._build_payload(request)
-        assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
+        assert payload["generationConfig"]["thinkingConfig"] == {
+            "thinkingLevel": "low",
+            "includeThoughts": True,
+        }
 
     def test_thinking_effort_none_maps_to_low_for_gemini_3_7_flash(self):
         request = _make_request(model_id="gemini-3.7-flash")
         payload = VertexProvider._build_payload(request)
-        assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
+        assert payload["generationConfig"]["thinkingConfig"] == {
+            "thinkingLevel": "low",
+            "includeThoughts": True,
+        }
 
     def test_thinking_config_can_be_set_via_generation_kwargs(self):
         request = _make_request(generation_kwargs={"thinkingConfig": {"thinkingLevel": "low"}})
@@ -390,7 +402,10 @@ class TestBuildPayload:
         for effort in ("low", "medium", "high"):
             request = _make_request(model_id="gemini-3.5-flash", thinking_effort=effort)
             payload = VertexProvider._build_payload(request)
-            assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": effort}
+            assert payload["generationConfig"]["thinkingConfig"] == {
+                "thinkingLevel": effort,
+                "includeThoughts": True,
+            }
 
     def test_explicit_thinking_config_overrides_thinking_effort(self):
         request = _make_request(
