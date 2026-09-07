@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v2.11.0 (2026-09-07)
+
+### Bug Fixes
+
+- **vertex**: Include thoughts by default when thinking
+  ([`bd6fbdc`](https://github.com/nachollorca/lmdk/commit/bd6fbdc5e2fad8f3acd3cee9df191c94e4181d2c))
+
+### Features
+
+- **telemetry**: Log thinking content as reasoning part in content mode
+  ([`2e2b358`](https://github.com/nachollorca/lmdk/commit/2e2b358cf6346974414bd5757a14dab724f6b3f0))
+
+
 ## v2.10.4 (2026-09-03)
 
 ### Bug Fixes
