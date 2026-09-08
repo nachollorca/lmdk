@@ -338,5 +338,5 @@ This inference package has been used to build:
 - [`promptuna`](https://github.com/nachollorca/promptuna)
 - [`llmalchemy`](https://github.com/nachollorca/llmalchemy)
 - [`markov-agent`](https://github.com/nachollorca/markov-agent)
-- 
+
 _Made with [`mold`](https://github.com/nachollorca/mold) template_
