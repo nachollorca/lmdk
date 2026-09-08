@@ -5,7 +5,7 @@ What it offers:
 - Minimal dependencies: HTTP requests only, no third party packages
 - Streaming
 - Thinking / reasoning efforts
-- Comfy structured outputs via Pydantic models, **only if the provider / model supports it natively**
+- Comfy structured outputs via Pydantic models
 - Parallel completions
 - Unified HTTP error handling
 - Easy location config (for providers with multiple datacenters like AWS Bedrock, GCP Vertex and Azure)
@@ -16,7 +16,7 @@ What it offers:
 
 What it does **NOT** offer:
 - Tools / function calling / MCP
-- Agents
+- Agents (but you can build your own on top of this! See [markov-agent](https://github.com/nachollorca/markov-agent))
 - Multimodality (only text-in, text-out)
 - Shady under-the-hood prompt modification (e.g. to force structured output)
 - API gateways
@@ -333,4 +333,10 @@ You can use `just validate <model>` (runs `example.py`) to verify which features
 ## License
 MIT
 
+This inference package has been used to build:
+- [`lmti`](https://github.com/nachollorca/lmti)
+- [`promptuna`](https://github.com/nachollorca/promptuna)
+- [`llmalchemy`](https://github.com/nachollorca/llmalchemy)
+- [`markov-agent`](https://github.com/nachollorca/markov-agent)
+- 
 _Made with [`mold`](https://github.com/nachollorca/mold) template_
