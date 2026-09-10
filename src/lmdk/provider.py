@@ -13,7 +13,9 @@ from email.utils import parsedate_to_datetime
 import requests
 
 from lmdk.datatypes import CompletionRequest, CompletionResponse, RawResponse
-from lmdk.errors import STATUS_TO_ERROR, AuthenticationError, ProviderError
+from lmdk.errors import STATUS_TO_ERROR, AuthenticationError, ProviderError, TruncatedResponseError
+
+_TRUNCATED_FINISH_REASONS = {"length", "max_tokens", "max_output_tokens"}
 
 
 def _parse_retry_after(retry_after: str | None) -> float | None:
@@ -102,6 +104,13 @@ class Provider(ABC):
 
         parsed = None
         if request.output_schema:
+            reason = (raw.finish_reason or "").lower()
+            if reason in _TRUNCATED_FINISH_REASONS:
+                raise TruncatedResponseError(
+                    f"Response truncated: model hit ``max_tokens`` limit with ``output_schema`` "
+                    f"({raw.output_tokens} tokens generated). "
+                    "Therefore, the output JSON is malformed."
+                )
             parsed = request.output_schema.model_validate_json(raw.content)
 
         return CompletionResponse(

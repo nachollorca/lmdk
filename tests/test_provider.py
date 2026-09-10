@@ -13,7 +13,12 @@ from lmdk.datatypes import (
     Message,
     ThinkingEffort,
 )
-from lmdk.errors import AuthenticationError, InternalServerError, RateLimitError
+from lmdk.errors import (
+    AuthenticationError,
+    InternalServerError,
+    RateLimitError,
+    TruncatedResponseError,
+)
 from lmdk.provider import Provider, RawResponse, load_provider
 
 # ---------------------------------------------------------------------------
@@ -150,6 +155,35 @@ class TestProviderComplete:
 
         result = fake_provider.complete(request=_make_request(), stream=False)
         assert result.finish_reason == "stop"
+
+    @pytest.mark.parametrize("reason", ["length", "max_tokens", "MAX_TOKENS", "max_output_tokens"])
+    def test_raises_truncated_error_when_output_schema_and_finish_reason_truncated(
+        self, fake_provider, reason
+    ):
+        class DummySchema(BaseModel):
+            val: str
+
+        fake_provider.response_fn = lambda req, creds: RawResponse(
+            content='{"val": "incom',
+            input_tokens=10,
+            output_tokens=100,
+            finish_reason=reason,
+        )
+        req = _make_request(output_schema=DummySchema)
+        with pytest.raises(TruncatedResponseError, match="Response truncated"):
+            fake_provider.complete(request=req, stream=False)
+
+    def test_does_not_raise_truncated_error_without_output_schema(self, fake_provider):
+        fake_provider.response_fn = lambda req, creds: RawResponse(
+            content="partial sentence...",
+            input_tokens=10,
+            output_tokens=100,
+            finish_reason="length",
+        )
+        req = _make_request(output_schema=None)
+        result = fake_provider.complete(request=req, stream=False)
+        assert result.content == "partial sentence..."
+        assert result.finish_reason == "length"
 
     def test_custom_stream_fn(self, fake_provider):
         fake_provider.stream_fn = lambda req, creds: iter(["a", "b", "c"])

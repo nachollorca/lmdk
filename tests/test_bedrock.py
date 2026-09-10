@@ -165,7 +165,8 @@ class TestStreamResponse:
 
 
 class TestTruncation:
-    def test_max_tokens_stop_reason_raises_instead_of_empty_tool_input(self):
+    def test_max_tokens_stop_reason_raises_instead_of_empty_tool_input(self, monkeypatch):
+        monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "token-123")
         resp = MagicMock()
         resp.status_code = 200
         resp.json.return_value = {
@@ -177,6 +178,6 @@ class TestTruncation:
             patch("lmdk.provider.requests.post", return_value=resp),
             pytest.raises(TruncatedResponseError, match="max_tokens"),
         ):
-            BedrockProvider._send_request(
-                make_completion_request(model_id=MODEL, output_schema=Person), CREDENTIALS
+            BedrockProvider.complete(
+                make_completion_request(model_id=MODEL, output_schema=Person), stream=False
             )
