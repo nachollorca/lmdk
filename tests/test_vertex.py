@@ -44,6 +44,7 @@ def _mock_vertex_response(
     candidates_tokens: int = 5,
     thoughts_tokens: int = 0,
     parts: list[dict] | None = None,
+    finish_reason: str = "STOP",
 ):
     """Build a mock requests.Response that mimics a Vertex generateContent response."""
     if parts is None:
@@ -54,10 +55,13 @@ def _mock_vertex_response(
     }
     if thoughts_tokens:
         usage_metadata["thoughtsTokenCount"] = thoughts_tokens
+    candidate: dict = {"content": {"parts": parts}}
+    if finish_reason is not None:
+        candidate["finishReason"] = finish_reason
     resp = MagicMock()
     resp.status_code = 200
     resp.json.return_value = {
-        "candidates": [{"content": {"parts": parts}}],
+        "candidates": [candidate],
         "usageMetadata": usage_metadata,
     }
     return resp
@@ -519,6 +523,7 @@ class TestSendRequest:
         assert result.content == "Hello there!"
         assert result.input_tokens == 10
         assert result.output_tokens == 5
+        assert result.finish_reason == "STOP"
 
         # Verify the POST call went to the right URL
         call_args = mock_post.call_args

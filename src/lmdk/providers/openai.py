@@ -137,12 +137,15 @@ class OpenaiProvider(Provider):
         body = response.json()
         usage = body.get("usage", {})
         output_details = usage.get("output_tokens_details", {})
+        incomplete_reason = (body.get("incomplete_details") or {}).get("reason")
+        finish_reason = incomplete_reason or body.get("status")
         return RawResponse(
             content=cls._extract_text(body),
             input_tokens=usage.get("input_tokens", 0),
             output_tokens=usage.get("output_tokens", 0),
             thinking=cls._extract_thinking(body),
             thinking_tokens=output_details.get("reasoning_tokens", 0),
+            finish_reason=finish_reason,
         )
 
     @classmethod

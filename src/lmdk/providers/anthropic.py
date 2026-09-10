@@ -200,6 +200,7 @@ class AnthropicProvider(Provider):
             output_tokens=usage.get("output_tokens", 0),
             thinking=cls._extract_thinking(body),
             thinking_tokens=usage.get("output_tokens_details", {}).get("thinking_tokens", 0),
+            finish_reason=body.get("stop_reason"),
         )
 
     @classmethod

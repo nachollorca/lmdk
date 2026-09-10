@@ -164,7 +164,8 @@ class ChatCompletionsProvider(Provider):
         )
 
         body = response.json()
-        message = body["choices"][0]["message"]
+        choice = body["choices"][0]
+        message = choice["message"]
         usage = body.get("usage", {})
         return RawResponse(
             content=cls._extract_text(message.get("content")),
@@ -172,6 +173,7 @@ class ChatCompletionsProvider(Provider):
             output_tokens=usage.get("completion_tokens", 0),
             thinking=cls._extract_thinking(message),
             thinking_tokens=cls._extract_thinking_tokens(usage),
+            finish_reason=choice.get("finish_reason"),
         )
 
     @classmethod

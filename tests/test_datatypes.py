@@ -121,10 +121,15 @@ class TestCompletionRequest:
 
 
 class TestRawResponse:
-    def test_thinking_defaults(self):
+    def test_defaults(self):
         raw = RawResponse(content="hi", input_tokens=1, output_tokens=2)
         assert raw.thinking is None
         assert raw.thinking_tokens == 0
+        assert raw.finish_reason is None
+
+    def test_finish_reason_can_be_set(self):
+        raw = RawResponse(content="hi", input_tokens=1, output_tokens=2, finish_reason="stop")
+        assert raw.finish_reason == "stop"
 
     def test_thinking_can_be_set(self):
         raw = RawResponse(

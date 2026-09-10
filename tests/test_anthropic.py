@@ -48,6 +48,7 @@ def _mock_chat_response(
     *,
     thinking: str | None = None,
     thinking_tokens: int = 0,
+    stop_reason: str = "end_turn",
 ):
     """Build a mock requests.Response that mimics an Anthropic message response."""
     blocks: list[dict] = []
@@ -67,6 +68,7 @@ def _mock_chat_response(
         "role": "assistant",
         "content": blocks,
         "usage": usage,
+        "stop_reason": stop_reason,
     }
     return resp
 
@@ -432,6 +434,7 @@ class TestSendRequest:
         assert result.content == "Hello there!"
         assert result.input_tokens == 10
         assert result.output_tokens == 5
+        assert result.finish_reason == "end_turn"
 
         # Verify the POST call
         call_kwargs = mock_post.call_args

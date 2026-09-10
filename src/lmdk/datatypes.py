@@ -66,6 +66,7 @@ class RawResponse:
     output_tokens: int
     thinking: str | None = None
     thinking_tokens: int = 0
+    finish_reason: str | None = None
 
 
 T = TypeVar("T", bound=BaseModel | None)

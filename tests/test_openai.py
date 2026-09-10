@@ -35,11 +35,18 @@ def _make_request(
     )
 
 
-def _mock_chat_response(content: str = "hello", input_tokens: int = 10, output_tokens: int = 5):
+def _mock_chat_response(
+    content: str = "hello",
+    input_tokens: int = 10,
+    output_tokens: int = 5,
+    *,
+    status: str = "completed",
+    incomplete_reason: str | None = None,
+):
     """Build a mock requests.Response that mimics an OpenAI Responses API response."""
     resp = MagicMock()
     resp.status_code = 200
-    resp.json.return_value = {
+    payload: dict = {
         "output": [
             {
                 "type": "message",
@@ -48,7 +55,11 @@ def _mock_chat_response(content: str = "hello", input_tokens: int = 10, output_t
             }
         ],
         "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
+        "status": status,
     }
+    if incomplete_reason is not None:
+        payload["incomplete_details"] = {"reason": incomplete_reason}
+    resp.json.return_value = payload
     return resp
 
 
@@ -323,6 +334,7 @@ class TestSendRequest:
         assert result.output_tokens == 5
         assert result.thinking is None
         assert result.thinking_tokens == 0
+        assert result.finish_reason == "completed"
         assert mock_post.call_args[0][0] == OPENAI_API_URL
         assert mock_post.call_args.kwargs["headers"]["Authorization"] == "Bearer sk-test"
 
