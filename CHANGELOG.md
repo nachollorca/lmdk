@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v2.12.0 (2026-09-10)
+
+### Documentation
+
+- Fix formatting in README.md
+  ([`8bb8c8b`](https://github.com/nachollorca/lmdk/commit/8bb8c8bca8f47f8803dfb0d52a3487fcd7a3b7e8))
+
+- Revise README for clarity and project references
+  ([`f130fd7`](https://github.com/nachollorca/lmdk/commit/f130fd7d4f15f8c362691b1bf94be5b564d75914))
+
+- Update link to alternative for unified token gateway
+  ([`0794e2b`](https://github.com/nachollorca/lmdk/commit/0794e2b3b91478b0f58317b0f4c60b850e9b5d7e))
+
+### Features
+
+- Add stop reason everywhere
+  ([`50aa302`](https://github.com/nachollorca/lmdk/commit/50aa3025b0656b16720478f0367eea182316454e))
+
+
 ## v2.11.1 (2026-09-07)
 
 ### Bug Fixes
