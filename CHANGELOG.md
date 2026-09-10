@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.13.0 (2026-09-10)
+
+### Features
+
+- Raise TruncatedResponseError when response truncated with output_schema
+  ([`4da3f48`](https://github.com/nachollorca/lmdk/commit/4da3f484d7f427280322f13a533dda6b056f7fb2))
+
+
 ## v2.12.0 (2026-09-10)
 
 ### Documentation
