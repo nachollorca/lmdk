@@ -313,6 +313,8 @@ class VertexProvider(Provider):
         body = response.json()
         content = cls._extract_text(body)
         usage = body.get("usageMetadata", {})
+        candidates = body.get("candidates") or []
+        finish_reason = candidates[0].get("finishReason") if candidates else None
 
         return RawResponse(
             content=content,
@@ -320,6 +322,7 @@ class VertexProvider(Provider):
             output_tokens=usage.get("candidatesTokenCount", 0),
             thinking=cls._extract_thinking(body),
             thinking_tokens=usage.get("thoughtsTokenCount", 0),
+            finish_reason=finish_reason,
         )
 
     @classmethod

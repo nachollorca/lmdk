@@ -110,6 +110,7 @@ class Provider(ABC):
             output_tokens=raw.output_tokens,
             thinking=raw.thinking,
             thinking_tokens=raw.thinking_tokens,
+            finish_reason=raw.finish_reason,
             latency=latency,
             parsed=parsed,
         )

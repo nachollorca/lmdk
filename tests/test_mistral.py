@@ -42,6 +42,7 @@ def _mock_chat_response(
     prompt_tokens: int = 10,
     completion_tokens: int = 5,
     reasoning_tokens: int | None = None,
+    finish_reason: str = "stop",
 ):
     """Build a mock requests.Response that mimics a Mistral chat completion."""
     usage: dict = {
@@ -53,7 +54,7 @@ def _mock_chat_response(
     resp = MagicMock()
     resp.status_code = 200
     resp.json.return_value = {
-        "choices": [{"message": {"content": content}}],
+        "choices": [{"message": {"content": content}, "finish_reason": finish_reason}],
         "usage": usage,
     }
     return resp
@@ -221,6 +222,7 @@ class TestSendRequest:
         assert result.output_tokens == 5
         assert result.thinking is None
         assert result.thinking_tokens == 0
+        assert result.finish_reason == "stop"
 
         # Verify the POST call
         call_kwargs = mock_post.call_args

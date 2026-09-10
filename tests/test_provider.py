@@ -139,6 +139,18 @@ class TestProviderComplete:
         assert result.thinking == "trace"
         assert result.thinking_tokens == 40
 
+    def test_propagates_finish_reason_from_raw_response(self, fake_provider):
+        custom = RawResponse(
+            content="answer",
+            input_tokens=10,
+            output_tokens=50,
+            finish_reason="stop",
+        )
+        fake_provider.response_fn = lambda req, creds: custom
+
+        result = fake_provider.complete(request=_make_request(), stream=False)
+        assert result.finish_reason == "stop"
+
     def test_custom_stream_fn(self, fake_provider):
         fake_provider.stream_fn = lambda req, creds: iter(["a", "b", "c"])
 
