@@ -11,7 +11,6 @@ from collections.abc import Iterator
 from typing import Any
 
 from lmdk.datatypes import CompletionRequest
-from lmdk.errors import TruncatedResponseError
 from lmdk.provider import Provider, RawResponse
 
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
@@ -162,18 +161,6 @@ class AnthropicProvider(Provider):
         return "".join(parts)
 
     @classmethod
-    def _check_truncated(cls, body: dict) -> None:
-        """Raise if generation was cut off by the ``max_tokens`` budget."""
-        if body.get("stop_reason") == "max_tokens":
-            usage = body.get("usage", {})
-            raise TruncatedResponseError(
-                "Response truncated: the model hit the max_tokens budget "
-                f"after {usage.get('output_tokens', 0)} output tokens "
-                f"(default {DEFAULT_MAX_TOKENS}). Raise it via "
-                'generation_kwargs={"max_tokens": ...} or ask for a shorter answer.'
-            )
-
-    @classmethod
     def _extract_thinking(cls, body: dict) -> str | None:
         """Extract thinking content from ``thinking`` blocks in the response."""
         parts = []
@@ -192,7 +179,6 @@ class AnthropicProvider(Provider):
         )
 
         body = response.json()
-        cls._check_truncated(body)
         usage = body.get("usage", {})
         return RawResponse(
             content=cls._extract_text(body),
