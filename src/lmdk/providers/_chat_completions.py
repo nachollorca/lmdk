@@ -17,6 +17,7 @@ deployed. This base class only parses fields when they are present.
 from collections.abc import Iterator
 
 from lmdk.datatypes import CompletionRequest
+from lmdk.errors import ProviderError, RequestTooLargeError
 from lmdk.provider import Provider, RawResponse
 from lmdk.providers._schema import prepare_schema
 
@@ -36,6 +37,28 @@ class ChatCompletionsProvider(Provider):
 
     # Fixed endpoint, up to but excluding ``/chat/completions``.
     base_url: str = ""
+
+    @classmethod
+    def _classify_error(
+        cls, status_code: int, data: dict | None, message: str | None
+    ) -> tuple[type[ProviderError], int]:
+        # OpenAI-compatible APIs return 400 instead of 413 for context overflow.
+        # This mapping is arbitrary, but I want callers to distinguish
+        # context overflow from genuine bad request syntax
+        if status_code == 400 and isinstance(data, dict):
+            err = data.get("error")
+            err_dict = err if isinstance(err, dict) else {}
+            code = err_dict.get("code")
+            err_type = err_dict.get("type")
+            msg = (message or "").lower()
+            if (
+                code == "context_length_exceeded"
+                or err_type == "exceed_context_size_error"
+                or "context length" in msg
+                or "context size" in msg
+            ):
+                return RequestTooLargeError, 413
+        return super()._classify_error(status_code, data, message)
 
     @classmethod
     def _parse_model_id(cls, model_id: str) -> tuple[str, str]:

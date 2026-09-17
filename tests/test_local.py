@@ -9,7 +9,7 @@ from conftest import make_completion_request
 from pydantic import BaseModel
 
 from lmdk.datatypes import CompletionRequest, Message, ThinkingEffort
-from lmdk.errors import ProviderError
+from lmdk.errors import ProviderError, RequestTooLargeError
 from lmdk.provider import RawResponse
 from lmdk.providers.local import LocalProvider
 
@@ -297,3 +297,33 @@ class TestStreamResponse:
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         assert payload["stream"] is True
+
+
+# ---------------------------------------------------------------------------
+# Error classification
+# ---------------------------------------------------------------------------
+
+
+class TestErrorClassification:
+    def test_exceed_context_size_error_maps_to_request_too_large(self):
+        body = {
+            "error": {
+                "code": 400,
+                "message": "request (210054 tokens) exceeds the available context size (200192 tokens), try increasing it",
+                "type": "exceed_context_size_error",
+            }
+        }
+        mock_resp = MagicMock()
+        mock_resp.status_code = 400
+        mock_resp.reason = "Bad Request"
+        mock_resp.text = json.dumps(body)
+        mock_resp.json.return_value = body
+
+        with (
+            patch("lmdk.provider.requests.post", return_value=mock_resp),
+            pytest.raises(RequestTooLargeError) as exc_info,
+        ):
+            LocalProvider._send_request(_make_request(), credentials={})
+
+        assert exc_info.value.status_code == 413
+        assert "exceeds the available context size" in str(exc_info.value)
