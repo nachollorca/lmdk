@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.13.1 (2026-09-17)
+
+### Bug Fixes
+
+- **errors**: Grab the HTTP details
+  ([`39f13dd`](https://github.com/nachollorca/lmdk/commit/39f13ddb6453b657a8024aec2f2078e3e97eca70))
+
+
 ## v2.13.0 (2026-09-10)
 
 ### Features
