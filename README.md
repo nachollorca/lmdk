@@ -1,6 +1,7 @@
 # Language Model Development Kit
 
 What it offers:
+
 - **Simplest interface to call different Language Model APIs**
 - Minimal dependencies: HTTP requests only, no third party packages
 - Streaming
@@ -15,11 +16,13 @@ What it offers:
 - In-process observation hook (`observe()`) to capture request/response pairs from wrapped code
 
 What it does **NOT** offer:
+
 - Tools / function calling / MCP
 - Agents (but you can build your own on top of this! See [markov-agent](https://github.com/nachollorca/markov-agent))
 - Multimodality (only text-in, text-out)
 - Shady under-the-hood prompt modification (e.g. to force structured output)
 - API gateways
+- "Decision" models (non-generative) like [Laya](https://laya.convaiinnovations.com/) or [Jev](https://docs.typesafe.ai/introduction)
 
 If you are looking for a more constrained but out-of-the-box agent interface, I'd recommend [pydantic-ai](https://ai.pydantic.dev) or [haystack-ai](https://docs.haystack.deepset.ai/docs/generators).
 If you are looking to keep granular control but extend on tools or multimodality, I'd recommend [litellm](https://docs.litellm.ai/docs/) or leveraging the OpenAI-compatible endpoints that providers normally set up.
@@ -27,6 +30,7 @@ The closest to the "less intrusive path to unified LM calling" idea in `lmdk` is
 If you want a unified a token for all providers and are willing to give away telemetry data, check Gateways like [Opper](https://opper.ai/openrouter-alternative) or [openrouter](https://openrouter.ai).
 
 ## Installation
+
 `uv add lmdk`
 
 Optional OpenTelemetry support:
@@ -36,6 +40,7 @@ uv add 'lmdk[telemetry]'
 ```
 
 ## Usage
+
 ```python
 from lmdk import complete
 
@@ -51,6 +56,7 @@ model = "mistral:mistral-small-2603"
 ```python
 response = complete(model=model, prompt="Tell me a joke")
 ```
+
 </details>
 
 <details>
@@ -64,6 +70,7 @@ messages = [
 ]
 response = complete(model=model, prompt=messages)
 ```
+
 </details>
 
 <details>
@@ -77,6 +84,7 @@ response = complete(
     generation_kwargs={"temperature": 0.9, "max_tokens": 10}
 )
 ```
+
 </details>
 
 <details>
@@ -85,6 +93,7 @@ response = complete(
 ```python
 token_iter = complete(model=model, prompt="Count from 1 to 5.", stream=True)
 ```
+
 </details>
 
 <details>
@@ -94,6 +103,7 @@ token_iter = complete(model=model, prompt="Count from 1 to 5.", stream=True)
 response = complete(model=["mistral:nonexistent-model", model], prompt="Hi")
 # first request will raise NotFoundError bc model does not exist, second will work
 ```
+
 </details>
 
 <details>
@@ -111,6 +121,7 @@ response = complete(
 
 - If the location has no scheme, `http://` is assumed.
 - If the server requires authentication, set the `LOCAL_API_KEY` environment variable, which is automatically sent as a `Bearer` token.
+
 </details>
 
 <details>
@@ -128,6 +139,7 @@ class Recipe(BaseModel):
 response = complete(model=model, prompt="How do I make cheescake?", output_schema=Recipe)
 # response.parsed will have a Recipe instance
 ```
+
 </details>
 
 <details>
@@ -149,6 +161,7 @@ response = complete(
     thinking_effort="medium",
 )
 ```
+
 The usage of the thinking can be seen in the respective `CompletionResponse.thinking` and `CompletionResponse.thinking_tokens` fields.
 </details>
 
@@ -171,6 +184,7 @@ batch.input_tokens, batch.output_tokens, batch.latency
 batch.responses  # successes only
 batch.errors     # exceptions only
 ```
+
 </details>
 
 <details>
@@ -192,6 +206,7 @@ result = render_template(
     name="World"
 )
 ```
+
 </details>
 
 <details>
@@ -246,6 +261,7 @@ def configure_console_traces() -> None:
     provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
     trace.set_tracer_provider(provider)
 ```
+
 </details>
 
 <details>
@@ -268,6 +284,7 @@ def configure_logfire_traces() -> None:
         send_to_logfire=True,
     )
 ```
+
 </details>
 
 <details>
@@ -296,12 +313,13 @@ def configure_grafana_traces() -> None:
     provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
 ```
-</details>
 
+</details>
 
 ## Development
 
 ### Structure
+
 ```text
 src/lmdk/
 ├── core.py         # Entry points: complete, complete_batch
@@ -313,7 +331,9 @@ src/lmdk/
 ```
 
 ### Tooling
+
 We use `just` for development tasks. Use:
+
 - `just install`: Sync environment from the lockfile.
 - `just format`: Lints and formats with `ruff`.
 - `just check-types`: Static analysis with `ty`.
@@ -323,6 +343,7 @@ We use `just` for development tasks. Use:
 See [`justfile`](justfile) for a complete list of dev commands.
 
 ### Contribute
+
 1. **Hooks**: Install pre-commit hooks via `just install-hooks`. PRs will fail CI if linting/formatting is not applied.
 2. **Issues**: Open an issue first using the default template.
 3. **PRs**: Link your PR to the relevant issue using the PR template.
@@ -331,9 +352,11 @@ You can use `just validate <model>` (runs `example.py`) to verify which features
 **Not all of them have to pass to open a PR:** some providers do not even support native structured output. Do at least the normal non-structured, non-streamed completion. The rest can raise `NotImplementedError`.
 
 ## License
+
 MIT
 
 This inference package has been used to build:
+
 - [`lmti`](https://github.com/nachollorca/lmti)
 - [`promptuna`](https://github.com/nachollorca/promptuna)
 - [`llmalchemy`](https://github.com/nachollorca/llmalchemy)
