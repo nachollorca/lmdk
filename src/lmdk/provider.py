@@ -38,6 +38,23 @@ def _parse_retry_after(retry_after: str | None) -> float | None:
             return None
 
 
+def _extract_error_message(data: dict | None) -> str | None:
+    """Find a human-readable message in a JSON error body of unknown shape."""
+    if not isinstance(data, dict):
+        return None
+    err = data.get("error")
+    if isinstance(err, dict):
+        return err.get("message")
+    if isinstance(err, str):
+        return err
+    if "message" in data:
+        return data["message"]
+    if "detail" in data:
+        detail = data["detail"]
+        return detail if isinstance(detail, str) else str(detail)
+    return None
+
+
 def _calculate_backoff(
     attempt: int, initial_delay: float, backoff_factor: float, max_delay: float
 ) -> float:
@@ -207,15 +224,46 @@ class Provider(ABC):
                 time.sleep(delay)
                 continue
 
-            error_cls = STATUS_TO_ERROR.get(response.status_code, ProviderError)
+            error_cls, status_code, message = cls._extract_error_details(response)
             raise error_cls(
-                status_code=response.status_code,
-                message=f"{cls.__name__}: HTTP {response.status_code} - {response.reason}",
+                status_code=status_code,
+                message=message,
                 provider=cls.__name__,
                 body=response.text,
             )
 
         raise AssertionError("unreachable")
+
+    @classmethod
+    def _extract_error_details(
+        cls, response: requests.Response
+    ) -> tuple[type[ProviderError], int, str]:
+        """Extract error class, status code, and descriptive message from a failed response."""
+        data: dict | None = None
+        try:
+            parsed = response.json()
+            if isinstance(parsed, dict):
+                data = parsed
+        except Exception:
+            pass
+
+        server_msg = _extract_error_message(data)
+        if server_msg and not isinstance(server_msg, str):
+            server_msg = str(server_msg)
+
+        status_code = response.status_code or 0
+        error_cls, final_status_code = cls._classify_error(status_code, data, server_msg)
+        message = (
+            f"{cls.__name__}: HTTP {final_status_code} - {server_msg or response.reason or 'Error'}"
+        )
+        return error_cls, final_status_code, message
+
+    @classmethod
+    def _classify_error(
+        cls, status_code: int, data: dict | None, message: str | None
+    ) -> tuple[type[ProviderError], int]:
+        """Map HTTP status and response payload to an error class. Overridden by some providers."""
+        return STATUS_TO_ERROR.get(status_code, ProviderError), status_code
 
     @classmethod
     def _resolve_credentials(cls) -> dict[str, str]:

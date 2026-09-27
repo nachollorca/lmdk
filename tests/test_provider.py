@@ -16,6 +16,7 @@ from lmdk.datatypes import (
 from lmdk.errors import (
     AuthenticationError,
     InternalServerError,
+    ProviderError,
     RateLimitError,
     TruncatedResponseError,
 )
@@ -349,6 +350,19 @@ class TestMakeRequest:
         ):
             fake_provider._make_request("https://example.com", json={})
         assert exc_info.value.status_code == 500
+
+    def test_extracts_server_message_from_json(self, fake_provider):
+        mock_resp = _mock_http_response(
+            400, reason="Bad Request", text='{"error": {"message": "invalid prompt"}}'
+        )
+        mock_resp.json.return_value = {"error": {"message": "invalid prompt"}}
+        with (
+            patch("lmdk.provider.requests.post", return_value=mock_resp),
+            pytest.raises(ProviderError) as exc_info,
+        ):
+            fake_provider._make_request("https://example.com", json={})
+        assert "invalid prompt" in str(exc_info.value)
+        assert exc_info.value.status_code == 400
 
 
 # ---------------------------------------------------------------------------
