@@ -11,6 +11,7 @@ from lmdk.datatypes import (
     CompletionRequest,
     CompletionResponse,
     Message,
+    Question,
     RawResponse,
     UserMessage,
 )
@@ -367,3 +368,18 @@ class TestCompletionBatchOutput:
         )
         # First unwraps to ["a", "b"], second unwraps to "c" — not all lists
         assert batch.output == [["a", "b"], "c"]
+
+
+# ---------------------------------------------------------------------------
+# Question
+# ---------------------------------------------------------------------------
+
+
+class TestQuestion:
+    def test_accepts_two_labels(self):
+        q = Question("Spam?", {"yes": "unsolicited", "no": "legit"})
+        assert q.is_ordered is False
+
+    def test_rejects_fewer_than_two_labels(self):
+        with pytest.raises(ValueError, match="at least 2 labels"):
+            Question("Spam?", {"yes": "unsolicited"})
