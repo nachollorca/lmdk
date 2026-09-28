@@ -10,7 +10,10 @@ from pydantic import BaseModel
 from lmdk.datatypes import (
     CompletionRequest,
     CompletionResponse,
+    DecisionRequest,
+    DecisionResponse,
     Message,
+    Question,
     ThinkingEffort,
 )
 from lmdk.errors import (
@@ -77,7 +80,7 @@ class TestProviderComplete:
                 return {}
 
             @classmethod
-            def _send_request(cls, request, credentials):
+            def _send_completion_request(cls, request, credentials):
                 return RawResponse(
                     content=credentials["SINGLE_KEY"], input_tokens=0, output_tokens=0
                 )
@@ -102,7 +105,7 @@ class TestProviderComplete:
                 return {}
 
             @classmethod
-            def _send_request(cls, request, credentials):
+            def _send_completion_request(cls, request, credentials):
                 content = f"{credentials['KEY1']}-{credentials['KEY2']}"
                 return RawResponse(content=content, input_tokens=0, output_tokens=0)
 
@@ -388,6 +391,48 @@ class TestMakeRequest:
             fake_provider._make_request("https://example.com", json={})
         assert "invalid prompt" in str(exc_info.value)
         assert exc_info.value.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Provider.decide
+# ---------------------------------------------------------------------------
+
+
+class DecideOnlyProvider(Provider):
+    @classmethod
+    def _build_auth_headers(cls, credentials):
+        return {}
+
+    @classmethod
+    def _send_decision_request(cls, request, credentials):
+        return DecisionResponse(
+            probabilities={"spam": {"yes": 0.9, "no": 0.1}}, input_tokens=3, output_tokens=0
+        )
+
+
+_DECISION_REQUEST = DecisionRequest(
+    model_id="m",
+    state="Buy now!!!",
+    questions={"spam": Question("Is this spam?", {"yes": "unsolicited", "no": "legit"})},
+)
+
+
+class TestProviderDecide:
+    def test_delegates_and_measures_latency(self):
+        with patch("lmdk.provider.time.perf_counter", side_effect=[1.0, 3.5]):
+            result = DecideOnlyProvider.decide(_DECISION_REQUEST)
+        assert result.probabilities == {"spam": {"yes": 0.9, "no": 0.1}}
+        assert result.latency == 2.5
+
+    def test_decide_unsupported_raises(self, fake_provider):
+        with pytest.raises(NotImplementedError, match="decide"):
+            fake_provider.decide(_DECISION_REQUEST)
+
+    def test_complete_unsupported_raises(self):
+        with pytest.raises(NotImplementedError, match="complete"):
+            DecideOnlyProvider.complete(request=_make_request(), stream=False)
+        with pytest.raises(NotImplementedError, match="streaming"):
+            DecideOnlyProvider.complete(request=_make_request(), stream=True)
 
 
 # ---------------------------------------------------------------------------

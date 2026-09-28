@@ -126,7 +126,9 @@ class BedrockProvider(AnthropicProvider):
     # ── Provider interface implementation ─────────────────────────────────
 
     @classmethod
-    def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
+    def _send_completion_request(
+        cls, request: CompletionRequest, credentials: dict[str, str]
+    ) -> RawResponse:
         response = cls._make_request(
             cls._build_url(request.model_id, stream=False),
             json=cls._build_payload(request, stream=False),

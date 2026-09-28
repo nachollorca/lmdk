@@ -1,5 +1,6 @@
 """Abstract base class for LLM providers."""
 
+import dataclasses
 import datetime
 import importlib
 import json
@@ -12,7 +13,13 @@ from email.utils import parsedate_to_datetime
 
 import requests
 
-from lmdk.datatypes import CompletionRequest, CompletionResponse, RawResponse
+from lmdk.datatypes import (
+    CompletionRequest,
+    CompletionResponse,
+    DecisionRequest,
+    DecisionResponse,
+    RawResponse,
+)
 from lmdk.errors import STATUS_TO_ERROR, AuthenticationError, ProviderError, TruncatedResponseError
 
 _TRUNCATED_FINISH_REASONS = {"length", "max_tokens", "max_output_tokens"}
@@ -65,7 +72,7 @@ def _calculate_backoff(
 
 
 class Provider(ABC):
-    """Interface that all LLM providers must implement.
+    """Interface that all model providers must implement.
 
     Subclasses may define class attribute ``required_env``:
     A string or tuple of environment variable names the provider needs. For example:
@@ -73,7 +80,7 @@ class Provider(ABC):
     that need no credentials (e.g. a local OpenAI-compatible server) can leave it
     as the default empty tuple.
 
-    The main method in the base class (``complete``) handles:
+    The main methods in the base class (``complete`` and ``decide``) handle:
         - credential resolution (``_resolve_credentials``)
         - latency measurement
         - structured-output validation
@@ -83,11 +90,14 @@ class Provider(ABC):
         - ``_iter_sse_chunks`` to receive streamed responses
         - ``_make_request`` to make the POST HTTP request and handle errors
 
-    Concrete providers implement:
-        - ``_build_auth_headers`` to build the HTTP credentials required by the Provider
-        - ``_send_request`` to build the HTTP body,  call ``Provider._make_request`` and
-            optionally parse structured output
-        - ``_stream_response`` to build the HTTP body and parse the streamed tokens
+    Concrete providers implement ``_build_auth_headers`` to build the HTTP credentials
+    required by the Provider, plus the hooks for whatever they offer:
+        - completion (decoders): ``_send_completion_request`` to build the HTTP body, call
+            ``Provider._make_request`` and optionally parse structured output, and
+            ``_stream_response`` to build the HTTP body and parse the streamed tokens
+        - decision (encoders): ``_send_decision_request`` to build the HTTP body, call
+            ``Provider._make_request`` and parse the label probabilities
+    Hooks a provider does not implement raise ``NotImplementedError``.
     """
 
     # zero, one, or multiple required environment variables (empty = none required)
@@ -106,7 +116,7 @@ class Provider(ABC):
         """Resolve API credentials and delegate to the provider implementation.
 
         For non-streaming calls the base class wraps the provider's
-        ``_send_request`` with latency measurement, optional structured-output
+        ``_send_completion_request`` with latency measurement, optional structured-output
         parsing, and ``CompletionResponse`` construction.
 
         See ``lmdk.completion.complete`` for parameter docs and defaults.
@@ -117,7 +127,7 @@ class Provider(ABC):
             return cls._stream_response(request, credentials)
 
         start = time.perf_counter()
-        raw = cls._send_request(request, credentials)
+        raw = cls._send_completion_request(request, credentials)
         latency = time.perf_counter() - start
 
         parsed = None
@@ -143,6 +153,17 @@ class Provider(ABC):
         )
 
     @classmethod
+    def decide(cls, request: DecisionRequest) -> DecisionResponse:
+        """Resolve API credentials, delegate to ``_send_decision_request`` and measure latency.
+
+        See ``lmdk.decision.decide`` for parameter docs.
+        """
+        credentials = cls._resolve_credentials()
+        start = time.perf_counter()
+        response = cls._send_decision_request(request, credentials)
+        return dataclasses.replace(response, latency=time.perf_counter() - start)
+
+    @classmethod
     def request_reasoning_level(cls, request: CompletionRequest) -> str:
         """Return the reasoning level string sent to the provider for telemetry.
 
@@ -159,22 +180,32 @@ class Provider(ABC):
         ...
 
     @classmethod
-    @abstractmethod
-    def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
+    def _send_completion_request(
+        cls, request: CompletionRequest, credentials: dict[str, str]
+    ) -> RawResponse:
         """Make the API call and return the raw content and token counts.
 
         Implementations should NOT measure latency, validate output schemas,
         or build ``CompletionResponse`` objects -- the base class handles that.
         """
-        ...
+        raise NotImplementedError(f"{cls.__name__} does not support complete().")
 
     @classmethod
-    @abstractmethod
     def _stream_response(
         cls, request: CompletionRequest, credentials: dict[str, str]
     ) -> Iterator[str]:
         """Stream chat completion tokens from the provider."""
-        ...
+        raise NotImplementedError(f"{cls.__name__} does not support streaming.")
+
+    @classmethod
+    def _send_decision_request(
+        cls, request: DecisionRequest, credentials: dict[str, str]
+    ) -> DecisionResponse:
+        """Make the API call and return the label probabilities and token counts.
+
+        Implementations should NOT measure latency -- the base class handles that.
+        """
+        raise NotImplementedError(f"{cls.__name__} does not support decide().")
 
     @classmethod
     def _iter_sse_chunks(cls, response: requests.Response) -> Iterator[dict]:

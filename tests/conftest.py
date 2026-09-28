@@ -64,7 +64,9 @@ class FakeProvider(Provider):
         return {"Authorization": f"Bearer {credentials['FAKE_API_KEY']}"}
 
     @classmethod
-    def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
+    def _send_completion_request(
+        cls, request: CompletionRequest, credentials: dict[str, str]
+    ) -> RawResponse:
         if cls.response_fn is not None:
             return cls.response_fn(request, credentials)
         return _DEFAULT_RAW

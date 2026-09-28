@@ -66,7 +66,7 @@ class TestAuthHeaders:
 
 
 # ---------------------------------------------------------------------------
-# _send_request
+# _send_completion_request
 # ---------------------------------------------------------------------------
 
 
@@ -76,7 +76,7 @@ class TestSendRequest:
         monkeypatch.delenv("OPENROUTER_APP_TITLE", raising=False)
         mock_resp = _mock_chat_response()
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = OpenrouterProvider._send_request(
+            result = OpenrouterProvider._send_completion_request(
                 _make_request(), credentials={"OPENROUTER_API_KEY": "secret"}
             )
 
@@ -106,7 +106,7 @@ class TestSendRequest:
             },
         }
         with patch("lmdk.provider.requests.post", return_value=resp):
-            result = OpenrouterProvider._send_request(
+            result = OpenrouterProvider._send_completion_request(
                 _make_request(), credentials={"OPENROUTER_API_KEY": "secret"}
             )
 

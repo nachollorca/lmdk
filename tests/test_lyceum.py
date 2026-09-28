@@ -54,7 +54,9 @@ class TestSendRequest:
     def test_basic_text_completion(self):
         mock_resp = _mock_chat_response()
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = LyceumProvider._send_request(_make_request(), credentials=CREDENTIALS)
+            result = LyceumProvider._send_completion_request(
+                _make_request(), credentials=CREDENTIALS
+            )
 
         assert isinstance(result, RawResponse)
         assert result.content == "Hello there!"
@@ -69,7 +71,7 @@ class TestSendRequest:
     def test_structured_output_is_strict(self):
         content = '{"name": "Alice", "age": 30}'
         with patch("lmdk.provider.requests.post", return_value=_mock_chat_response(content)) as p:
-            result = LyceumProvider._send_request(
+            result = LyceumProvider._send_completion_request(
                 _make_request(output_schema=Person), credentials=CREDENTIALS
             )
 
