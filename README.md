@@ -322,7 +322,7 @@ def configure_grafana_traces() -> None:
 
 ```text
 src/lmdk/
-├── core.py         # Entry points: complete, complete_batch
+├── completion.py   # Entry points: complete, complete_batch
 ├── datatypes.py    # Common message and response schemas
 ├── provider.py     # Base Provider class and registry
 ├── providers/      # Concrete implementations (Mistral, Vertex, etc.)

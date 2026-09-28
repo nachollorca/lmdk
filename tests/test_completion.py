@@ -1,10 +1,10 @@
-"""Tests for lmdk.core — complete and complete_batch."""
+"""Tests for lmdk.completion — complete and complete_batch."""
 
 import pytest
 
 # We import the public functions; load_provider is patched via the
 # ``patch_load_provider`` fixture from conftest.
-from lmdk.core import complete, complete_batch
+from lmdk.completion import complete, complete_batch
 from lmdk.datatypes import CompletionResponse, UserMessage
 from lmdk.errors import AllModelsFailedError, ProviderError
 from lmdk.provider import RawResponse

@@ -15,7 +15,7 @@ from lmdk.datatypes import (
     UserMessage,
 )
 from lmdk.errors import AllModelsFailedError
-from lmdk.provider import load_provider
+from lmdk.provider import resolve_model
 from lmdk.utils import parallelize_function
 
 # @overload stubs let type checkers infer the return type of ``complete`` based on ``stream``
@@ -158,8 +158,7 @@ def _complete_model(
     fallback_index: int,
     calling_service: str | None = None,
 ) -> CompletionResponse | Iterator[str]:
-    provider_name, model_id = model.split(":", maxsplit=1)
-    provider = load_provider(name=provider_name)
+    provider_name, model_id, provider = resolve_model(model)
     request = CompletionRequest(
         model_id=model_id,
         prompt=prompt,

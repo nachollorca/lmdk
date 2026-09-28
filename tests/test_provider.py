@@ -21,7 +21,7 @@ from lmdk.errors import (
     ServiceUnavailableError,
     TruncatedResponseError,
 )
-from lmdk.provider import Provider, RawResponse, load_provider
+from lmdk.provider import Provider, RawResponse, load_provider, resolve_model
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -404,3 +404,11 @@ class TestLoadProvider:
     def test_unknown_provider_raises_import_error(self):
         with pytest.raises(ModuleNotFoundError):
             load_provider("nonexistent_provider_xyz")
+
+
+class TestResolveModel:
+    def test_splits_provider_and_keeps_location(self):
+        name, model_id, cls = resolve_model("local:qwen:7b@localhost:4000")
+        assert name == "local"
+        assert model_id == "qwen:7b@localhost:4000"
+        assert cls.__name__ == "LocalProvider"

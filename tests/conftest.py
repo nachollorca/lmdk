@@ -96,12 +96,12 @@ def fake_provider(monkeypatch):
 
 @pytest.fixture()
 def patch_load_provider(monkeypatch, fake_provider):
-    """Monkeypatch ``load_provider`` in ``lmdk.core`` to return ``FakeProvider``."""
+    """Monkeypatch ``load_provider`` in ``lmdk.provider`` to return ``FakeProvider``."""
 
     def _load(name: str):
         return fake_provider
 
-    monkeypatch.setattr("lmdk.core.load_provider", _load)
+    monkeypatch.setattr("lmdk.provider.load_provider", _load)
     return fake_provider
 
 

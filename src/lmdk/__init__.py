@@ -1,6 +1,6 @@
 """Contains the public-facing symbols."""
 
-from lmdk.core import complete, complete_batch
+from lmdk.completion import complete, complete_batch
 from lmdk.datatypes import (
     AssistantMessage,
     CompletionBatch,

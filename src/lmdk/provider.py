@@ -109,7 +109,7 @@ class Provider(ABC):
         ``_send_request`` with latency measurement, optional structured-output
         parsing, and ``CompletionResponse`` construction.
 
-        See ``lmdk.core.complete`` for parameter docs and defaults.
+        See ``lmdk.completion.complete`` for parameter docs and defaults.
         """
         credentials = cls._resolve_credentials()
 
@@ -306,3 +306,15 @@ def load_provider(name: str) -> type[Provider]:
     module = importlib.import_module(f"lmdk.providers.{name}")
     class_name = f"{name.capitalize()}Provider"
     return getattr(module, class_name)
+
+
+def resolve_model(model: str) -> tuple[str, str, type[Provider]]:
+    """Split ``"<provider>:<model_id>"`` and load the provider class.
+
+    Any ``@location`` suffix stays in ``model_id`` for the provider to parse.
+
+    Returns:
+        ``(provider_name, model_id, provider_cls)``.
+    """
+    provider_name, model_id = model.split(":", maxsplit=1)
+    return provider_name, model_id, load_provider(name=provider_name)

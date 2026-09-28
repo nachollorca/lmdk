@@ -39,7 +39,7 @@ class OpenaiProvider(Provider):
     def _normalize_generation_kwargs(cls, request: CompletionRequest) -> dict:
         """Translate common kwargs to the OpenAI Responses API shape.
 
-        ``lmdk.core.complete`` defaults to ``temperature=0`` for every
+        ``lmdk.completion.complete`` defaults to ``temperature=0`` for every
         provider, but newer OpenAI reasoning/GPT-5 models reject custom
         sampling controls and only allow their defaults. For those models we
         drop unsupported sampling keys so a normal call succeeds.
