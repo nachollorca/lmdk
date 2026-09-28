@@ -16,6 +16,7 @@ from lmdk.datatypes import CompletionRequest, CompletionResponse, RawResponse
 from lmdk.errors import STATUS_TO_ERROR, AuthenticationError, ProviderError, TruncatedResponseError
 
 _TRUNCATED_FINISH_REASONS = {"length", "max_tokens", "max_output_tokens"}
+_RETRY_STATUSES = {429, 529}  # rate limited, overloaded
 
 
 def _parse_retry_after(retry_after: str | None) -> float | None:
@@ -213,7 +214,7 @@ class Provider(ABC):
             if response.status_code == 200:
                 return response
 
-            if response.status_code == 429 and attempt < cls.max_retries:
+            if response.status_code in _RETRY_STATUSES and attempt < cls.max_retries:
                 delay = _parse_retry_after(response.headers.get("Retry-After"))
                 if delay is None or delay < 0:
                     delay = _calculate_backoff(

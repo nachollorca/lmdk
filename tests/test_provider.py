@@ -18,6 +18,7 @@ from lmdk.errors import (
     InternalServerError,
     ProviderError,
     RateLimitError,
+    ServiceUnavailableError,
     TruncatedResponseError,
 )
 from lmdk.provider import Provider, RawResponse, load_provider
@@ -242,6 +243,30 @@ class TestMakeRequest:
         assert result is mock_200
         assert mock_post.call_count == 3
         assert mock_sleep.call_count == 2
+
+    def test_529_retries_and_succeeds(self, fake_provider):
+        mock_529 = _mock_http_response(529, reason="Overloaded")
+        mock_200 = _mock_http_response(200)
+
+        with (
+            patch("lmdk.provider.requests.post", side_effect=[mock_529, mock_200]) as mock_post,
+            patch("lmdk.provider.time.sleep") as mock_sleep,
+        ):
+            result = fake_provider._make_request("https://example.com", json={})
+
+        assert result is mock_200
+        assert mock_post.call_count == 2
+        assert mock_sleep.call_count == 1
+
+    def test_529_raises_service_unavailable(self, fake_provider):
+        mock_resp = _mock_http_response(529, reason="Overloaded")
+        with (
+            patch("lmdk.provider.requests.post", return_value=mock_resp),
+            patch("lmdk.provider.time.sleep"),
+            pytest.raises(ServiceUnavailableError) as exc_info,
+        ):
+            fake_provider._make_request("https://example.com", json={})
+        assert exc_info.value.status_code == 529
 
     def test_429_retry_after_numeric(self, fake_provider):
         mock_429 = _mock_http_response(429, reason="Too Many Requests")
