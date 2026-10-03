@@ -2,6 +2,39 @@
 
 <!-- version list -->
 
+## v2.14.0 (2026-10-03)
+
+### Documentation
+
+- Document decide and decision providers
+  ([`0c4253d`](https://github.com/nachollorca/lmdk/commit/0c4253d1b05f048f6d7e0f1017d05d349fd3ddf7))
+
+### Features
+
+- Add decide entrypoint for decision models
+  ([`72a10a9`](https://github.com/nachollorca/lmdk/commit/72a10a937e404b5d46271aa8c1e423cc858170c2))
+
+- **datatypes**: Add decision types for encoder models
+  ([`a3cdb47`](https://github.com/nachollorca/lmdk/commit/a3cdb478279788876d7c1fe4b1ac5ff1b1c06924))
+
+- **decide**: Create design
+  ([`b96f98c`](https://github.com/nachollorca/lmdk/commit/b96f98cd05869d45126a1423d71ec35aecf4fbc5))
+
+- **provider**: Add decide hook and rename send hooks
+  ([`12f0ba8`](https://github.com/nachollorca/lmdk/commit/12f0ba84dea397ae352f4f2e8c65e33f3c938009))
+
+- **provider**: Retry on 529 overloaded responses
+  ([`9f3f909`](https://github.com/nachollorca/lmdk/commit/9f3f90913610e78b4bb0e5a2713c71ddc2e38438))
+
+- **providers**: Add typesafe and laya decision providers
+  ([`c651e1b`](https://github.com/nachollorca/lmdk/commit/c651e1b04fbc667272bfb2ff150a203a9d4ba7b0))
+
+### Refactoring
+
+- Rename core to completion and extract resolve_model
+  ([`6c8ea68`](https://github.com/nachollorca/lmdk/commit/6c8ea68d9823bec7f1251fae3648a6f437d5c5c5))
+
+
 ## v2.13.1 (2026-09-17)
 
 ### Bug Fixes
