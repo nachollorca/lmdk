@@ -418,7 +418,7 @@ class TestExtractThinking:
 
 
 # ---------------------------------------------------------------------------
-# _send_request — basic text completion
+# _send_completion_request — basic text completion
 # ---------------------------------------------------------------------------
 
 
@@ -426,7 +426,7 @@ class TestSendRequest:
     def test_basic_text_completion(self):
         mock_resp = _mock_chat_response(content="Hello there!")
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = AnthropicProvider._send_request(
+            result = AnthropicProvider._send_completion_request(
                 _make_request(), credentials={"ANTHROPIC_API_KEY": "sk-test"}
             )
 
@@ -446,7 +446,7 @@ class TestSendRequest:
     def test_posts_to_correct_url(self):
         mock_resp = _mock_chat_response()
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            AnthropicProvider._send_request(
+            AnthropicProvider._send_completion_request(
                 _make_request(), credentials={"ANTHROPIC_API_KEY": "sk-test"}
             )
 
@@ -456,7 +456,9 @@ class TestSendRequest:
         mock_resp = _mock_chat_response()
         request = _make_request(generation_kwargs={"max_tokens": 100, "stop_sequences": ["END"]})
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            AnthropicProvider._send_request(request, credentials={"ANTHROPIC_API_KEY": "sk-test"})
+            AnthropicProvider._send_completion_request(
+                request, credentials={"ANTHROPIC_API_KEY": "sk-test"}
+            )
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         assert payload["max_tokens"] == 100
@@ -466,7 +468,9 @@ class TestSendRequest:
         mock_resp = _mock_chat_response()
         request = _make_request(system_instruction="Talk like a pirate")
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            AnthropicProvider._send_request(request, credentials={"ANTHROPIC_API_KEY": "sk-test"})
+            AnthropicProvider._send_completion_request(
+                request, credentials={"ANTHROPIC_API_KEY": "sk-test"}
+            )
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         assert payload["system"] == "Talk like a pirate"
@@ -478,7 +482,7 @@ class TestSendRequest:
         request = _make_request(output_schema=Person)
 
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = AnthropicProvider._send_request(
+            result = AnthropicProvider._send_completion_request(
                 request, credentials={"ANTHROPIC_API_KEY": "sk-test"}
             )
 
@@ -504,7 +508,7 @@ class TestSendRequest:
         request = _make_request(output_schema=Recipe)
 
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = AnthropicProvider._send_request(
+            result = AnthropicProvider._send_completion_request(
                 request, credentials={"ANTHROPIC_API_KEY": "sk-test"}
             )
 
@@ -521,7 +525,7 @@ class TestSendRequest:
             thinking_tokens=40,
         )
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            result = AnthropicProvider._send_request(
+            result = AnthropicProvider._send_completion_request(
                 _make_request(), credentials={"ANTHROPIC_API_KEY": "sk-test"}
             )
 
@@ -532,7 +536,7 @@ class TestSendRequest:
     def test_missing_thinking_defaults(self):
         mock_resp = _mock_chat_response()
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            result = AnthropicProvider._send_request(
+            result = AnthropicProvider._send_completion_request(
                 _make_request(), credentials={"ANTHROPIC_API_KEY": "sk-test"}
             )
 

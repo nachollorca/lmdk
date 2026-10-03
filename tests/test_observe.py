@@ -7,7 +7,7 @@ no real provider is hit.
 import pytest
 
 from lmdk import observe
-from lmdk.core import complete, complete_batch
+from lmdk.completion import complete, complete_batch
 from lmdk.datatypes import CompletionRequest, CompletionResponse
 from lmdk.errors import ProviderError
 from lmdk.observe import CompletionObserver, CompletionRecord, _current_observer

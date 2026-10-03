@@ -64,7 +64,9 @@ class FakeProvider(Provider):
         return {"Authorization": f"Bearer {credentials['FAKE_API_KEY']}"}
 
     @classmethod
-    def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
+    def _send_completion_request(
+        cls, request: CompletionRequest, credentials: dict[str, str]
+    ) -> RawResponse:
         if cls.response_fn is not None:
             return cls.response_fn(request, credentials)
         return _DEFAULT_RAW
@@ -96,12 +98,12 @@ def fake_provider(monkeypatch):
 
 @pytest.fixture()
 def patch_load_provider(monkeypatch, fake_provider):
-    """Monkeypatch ``load_provider`` in ``lmdk.core`` to return ``FakeProvider``."""
+    """Monkeypatch ``load_provider`` in ``lmdk.provider`` to return ``FakeProvider``."""
 
     def _load(name: str):
         return fake_provider
 
-    monkeypatch.setattr("lmdk.core.load_provider", _load)
+    monkeypatch.setattr("lmdk.provider.load_provider", _load)
     return fake_provider
 
 

@@ -7,7 +7,7 @@ import pytest
 from conftest import FakeProvider
 from pydantic import BaseModel
 
-from lmdk.core import complete
+from lmdk.completion import complete
 from lmdk.datatypes import CompletionRequest, CompletionResponse, RawResponse, UserMessage
 from lmdk.providers.mistral import MistralProvider
 from lmdk.providers.openai import OpenaiProvider
@@ -371,7 +371,7 @@ def test_streaming_completions_are_not_instrumented(monkeypatch, patch_load_prov
 
 
 def test_calling_service_is_recorded_in_telemetry(monkeypatch, patch_load_provider, otel_setup):
-    from lmdk.core import complete_batch
+    from lmdk.completion import complete_batch
 
     span_exporter, metric_reader = otel_setup
     monkeypatch.setenv("LMDK_TELEMETRY", "metadata")

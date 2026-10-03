@@ -506,7 +506,7 @@ class TestExtractThinking:
 
 
 # ---------------------------------------------------------------------------
-# _send_request
+# _send_completion_request
 # ---------------------------------------------------------------------------
 
 
@@ -517,7 +517,9 @@ class TestSendRequest:
     def test_basic_text_completion(self):
         mock_resp = _mock_vertex_response(content="Hello there!")
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = VertexProvider._send_request(_make_request(), credentials=CREDENTIALS)
+            result = VertexProvider._send_completion_request(
+                _make_request(), credentials=CREDENTIALS
+            )
 
         assert isinstance(result, RawResponse)
         assert result.content == "Hello there!"
@@ -535,7 +537,7 @@ class TestSendRequest:
         mock_resp = _mock_vertex_response()
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
             request = _make_request(model_id="gemini-2.5-flash@europe-west4")
-            VertexProvider._send_request(request, credentials=CREDENTIALS)
+            VertexProvider._send_completion_request(request, credentials=CREDENTIALS)
 
         url = mock_post.call_args[0][0]
         assert "europe-west4-aiplatform.googleapis.com" in url
@@ -545,7 +547,7 @@ class TestSendRequest:
         mock_resp = _mock_vertex_response()
         request = _make_request(generation_kwargs={"temperature": 0.9, "max_tokens": 10})
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            VertexProvider._send_request(request, credentials=CREDENTIALS)
+            VertexProvider._send_completion_request(request, credentials=CREDENTIALS)
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         gen_config = payload["generationConfig"]
@@ -558,7 +560,7 @@ class TestSendRequest:
         request = _make_request(output_schema=Person)
 
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = VertexProvider._send_request(request, credentials=CREDENTIALS)
+            result = VertexProvider._send_completion_request(request, credentials=CREDENTIALS)
 
         assert result.content == content
 
@@ -580,7 +582,7 @@ class TestSendRequest:
         request = _make_request(output_schema=Recipe)
 
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = VertexProvider._send_request(request, credentials=CREDENTIALS)
+            result = VertexProvider._send_completion_request(request, credentials=CREDENTIALS)
 
         assert result.content == content
 
@@ -594,7 +596,7 @@ class TestSendRequest:
         mock_resp = _mock_vertex_response()
         creds = {"VERTEX_API_KEY": "my-api-key", "GCP_PROJECT_ID": PROJECT_ID}
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            VertexProvider._send_request(_make_request(), credentials=creds)
+            VertexProvider._send_completion_request(_make_request(), credentials=creds)
 
         call_kwargs = mock_post.call_args.kwargs
         assert call_kwargs["headers"] == {"x-goog-api-key": "my-api-key"}
@@ -606,7 +608,9 @@ class TestSendRequest:
         ]
         mock_resp = _mock_vertex_response(parts=parts)
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            result = VertexProvider._send_request(_make_request(), credentials=CREDENTIALS)
+            result = VertexProvider._send_completion_request(
+                _make_request(), credentials=CREDENTIALS
+            )
 
         assert result.content == "The answer is 42."
 
@@ -617,7 +621,9 @@ class TestSendRequest:
         ]
         mock_resp = _mock_vertex_response(parts=parts, thoughts_tokens=40)
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            result = VertexProvider._send_request(_make_request(), credentials=CREDENTIALS)
+            result = VertexProvider._send_completion_request(
+                _make_request(), credentials=CREDENTIALS
+            )
 
         assert result.thinking == "Let me think..."
         assert result.thinking_tokens == 40
@@ -629,7 +635,9 @@ class TestSendRequest:
             "candidates": [{"content": {"parts": [{"text": "ok"}]}}],
         }
         with patch("lmdk.provider.requests.post", return_value=resp):
-            result = VertexProvider._send_request(_make_request(), credentials=CREDENTIALS)
+            result = VertexProvider._send_completion_request(
+                _make_request(), credentials=CREDENTIALS
+            )
 
         assert result.input_tokens == 0
         assert result.output_tokens == 0

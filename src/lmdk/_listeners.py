@@ -1,6 +1,6 @@
 """Internal hook seam dispatched around each non-streaming completion call.
 
-This module gives :mod:`lmdk.core` a single place to plug cross-cutting
+This module gives :mod:`lmdk.completion` a single place to plug cross-cutting
 concerns (telemetry, observation, future cost tracking, etc.) without growing
 ad-hoc branches in ``_complete_model``. Each concern lives in its own module
 and is composed here.

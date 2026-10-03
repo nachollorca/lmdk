@@ -171,7 +171,9 @@ class AnthropicProvider(Provider):
         return joined if joined else None
 
     @classmethod
-    def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
+    def _send_completion_request(
+        cls, request: CompletionRequest, credentials: dict[str, str]
+    ) -> RawResponse:
         response = cls._make_request(
             ANTHROPIC_API_URL,
             json=cls._build_payload(request, stream=False),

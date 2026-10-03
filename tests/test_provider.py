@@ -10,7 +10,10 @@ from pydantic import BaseModel
 from lmdk.datatypes import (
     CompletionRequest,
     CompletionResponse,
+    DecisionRequest,
+    DecisionResponse,
     Message,
+    Question,
     ThinkingEffort,
 )
 from lmdk.errors import (
@@ -18,9 +21,10 @@ from lmdk.errors import (
     InternalServerError,
     ProviderError,
     RateLimitError,
+    ServiceUnavailableError,
     TruncatedResponseError,
 )
-from lmdk.provider import Provider, RawResponse, load_provider
+from lmdk.provider import Provider, RawResponse, load_provider, resolve_model
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -76,7 +80,7 @@ class TestProviderComplete:
                 return {}
 
             @classmethod
-            def _send_request(cls, request, credentials):
+            def _send_completion_request(cls, request, credentials):
                 return RawResponse(
                     content=credentials["SINGLE_KEY"], input_tokens=0, output_tokens=0
                 )
@@ -101,7 +105,7 @@ class TestProviderComplete:
                 return {}
 
             @classmethod
-            def _send_request(cls, request, credentials):
+            def _send_completion_request(cls, request, credentials):
                 content = f"{credentials['KEY1']}-{credentials['KEY2']}"
                 return RawResponse(content=content, input_tokens=0, output_tokens=0)
 
@@ -243,6 +247,30 @@ class TestMakeRequest:
         assert mock_post.call_count == 3
         assert mock_sleep.call_count == 2
 
+    def test_529_retries_and_succeeds(self, fake_provider):
+        mock_529 = _mock_http_response(529, reason="Overloaded")
+        mock_200 = _mock_http_response(200)
+
+        with (
+            patch("lmdk.provider.requests.post", side_effect=[mock_529, mock_200]) as mock_post,
+            patch("lmdk.provider.time.sleep") as mock_sleep,
+        ):
+            result = fake_provider._make_request("https://example.com", json={})
+
+        assert result is mock_200
+        assert mock_post.call_count == 2
+        assert mock_sleep.call_count == 1
+
+    def test_529_raises_service_unavailable(self, fake_provider):
+        mock_resp = _mock_http_response(529, reason="Overloaded")
+        with (
+            patch("lmdk.provider.requests.post", return_value=mock_resp),
+            patch("lmdk.provider.time.sleep"),
+            pytest.raises(ServiceUnavailableError) as exc_info,
+        ):
+            fake_provider._make_request("https://example.com", json={})
+        assert exc_info.value.status_code == 529
+
     def test_429_retry_after_numeric(self, fake_provider):
         mock_429 = _mock_http_response(429, reason="Too Many Requests")
         mock_429.headers = {"Retry-After": "5.5"}
@@ -366,6 +394,48 @@ class TestMakeRequest:
 
 
 # ---------------------------------------------------------------------------
+# Provider.decide
+# ---------------------------------------------------------------------------
+
+
+class DecideOnlyProvider(Provider):
+    @classmethod
+    def _build_auth_headers(cls, credentials):
+        return {}
+
+    @classmethod
+    def _send_decision_request(cls, request, credentials):
+        return DecisionResponse(
+            probabilities={"spam": {"yes": 0.9, "no": 0.1}}, input_tokens=3, output_tokens=0
+        )
+
+
+_DECISION_REQUEST = DecisionRequest(
+    model_id="m",
+    state="Buy now!!!",
+    questions={"spam": Question("Is this spam?", {"yes": "unsolicited", "no": "legit"})},
+)
+
+
+class TestProviderDecide:
+    def test_delegates_and_measures_latency(self):
+        with patch("lmdk.provider.time.perf_counter", side_effect=[1.0, 3.5]):
+            result = DecideOnlyProvider.decide(_DECISION_REQUEST)
+        assert result.probabilities == {"spam": {"yes": 0.9, "no": 0.1}}
+        assert result.latency == 2.5
+
+    def test_decide_unsupported_raises(self, fake_provider):
+        with pytest.raises(NotImplementedError, match="decide"):
+            fake_provider.decide(_DECISION_REQUEST)
+
+    def test_complete_unsupported_raises(self):
+        with pytest.raises(NotImplementedError, match="complete"):
+            DecideOnlyProvider.complete(request=_make_request(), stream=False)
+        with pytest.raises(NotImplementedError, match="streaming"):
+            DecideOnlyProvider.complete(request=_make_request(), stream=True)
+
+
+# ---------------------------------------------------------------------------
 # load_provider — dynamic import
 # ---------------------------------------------------------------------------
 
@@ -379,3 +449,11 @@ class TestLoadProvider:
     def test_unknown_provider_raises_import_error(self):
         with pytest.raises(ModuleNotFoundError):
             load_provider("nonexistent_provider_xyz")
+
+
+class TestResolveModel:
+    def test_splits_provider_and_keeps_location(self):
+        name, model_id, cls = resolve_model("local:qwen:7b@localhost:4000")
+        assert name == "local"
+        assert model_id == "qwen:7b@localhost:4000"
+        assert cls.__name__ == "LocalProvider"

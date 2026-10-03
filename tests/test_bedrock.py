@@ -111,7 +111,7 @@ class TestSendRequest:
             [{"type": "thinking", "thinking": "hmm"}, {"type": "text", "text": "hi"}]
         )
         with patch("lmdk.provider.requests.post", return_value=resp):
-            raw = BedrockProvider._send_request(
+            raw = BedrockProvider._send_completion_request(
                 make_completion_request(model_id=MODEL), CREDENTIALS
             )
         assert (raw.content, raw.thinking) == ("hi", "hmm")
@@ -123,7 +123,7 @@ class TestSendRequest:
             [{"type": "tool_use", "name": _SCHEMA_TOOL, "input": {key: {"name": "Ada", "age": 36}}}]
         )
         with patch("lmdk.provider.requests.post", return_value=resp):
-            raw = BedrockProvider._send_request(
+            raw = BedrockProvider._send_completion_request(
                 make_completion_request(model_id=MODEL, output_schema=Person), CREDENTIALS
             )
         assert Person.model_validate_json(raw.content) == Person(name="Ada", age=36)
@@ -133,7 +133,7 @@ class TestSendRequest:
             [{"type": "tool_use", "name": _SCHEMA_TOOL, "input": {"name": "Ada", "age": 36}}]
         )
         with patch("lmdk.provider.requests.post", return_value=resp):
-            raw = BedrockProvider._send_request(
+            raw = BedrockProvider._send_completion_request(
                 make_completion_request(model_id=MODEL, output_schema=Person), CREDENTIALS
             )
         assert Person.model_validate_json(raw.content) == Person(name="Ada", age=36)

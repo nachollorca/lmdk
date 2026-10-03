@@ -55,7 +55,7 @@ class InternalServerError(ProviderError):
 
 
 class ServiceUnavailableError(ProviderError):
-    """Raised for 503 responses -- service overloaded or unavailable."""
+    """Raised for 503/529 responses -- service overloaded or unavailable."""
 
 
 class TruncatedResponseError(LMDKError):
@@ -91,4 +91,5 @@ STATUS_TO_ERROR: dict[int, type[ProviderError]] = {
     429: RateLimitError,
     500: InternalServerError,
     503: ServiceUnavailableError,
+    529: ServiceUnavailableError,
 }

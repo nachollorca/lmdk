@@ -204,7 +204,7 @@ class TestExtractThinking:
 
 
 # ---------------------------------------------------------------------------
-# _send_request — basic text completion
+# _send_completion_request — basic text completion
 # ---------------------------------------------------------------------------
 
 
@@ -212,7 +212,7 @@ class TestSendRequest:
     def test_basic_text_completion(self):
         mock_resp = _mock_chat_response(content="Hello there!")
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = MistralProvider._send_request(
+            result = MistralProvider._send_completion_request(
                 _make_request(), credentials={"MISTRAL_API_KEY": "test-key"}
             )
 
@@ -234,7 +234,9 @@ class TestSendRequest:
         mock_resp = _mock_chat_response()
         request = _make_request(generation_kwargs={"temperature": 0.9, "max_tokens": 10})
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            MistralProvider._send_request(request, credentials={"MISTRAL_API_KEY": "test-key"})
+            MistralProvider._send_completion_request(
+                request, credentials={"MISTRAL_API_KEY": "test-key"}
+            )
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         assert payload["temperature"] == 0.9
@@ -247,7 +249,7 @@ class TestSendRequest:
         request = _make_request(output_schema=Person)
 
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = MistralProvider._send_request(
+            result = MistralProvider._send_completion_request(
                 request, credentials={"MISTRAL_API_KEY": "test-key"}
             )
 
@@ -277,7 +279,7 @@ class TestSendRequest:
         request = _make_request(output_schema=Recipe)
 
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = MistralProvider._send_request(
+            result = MistralProvider._send_completion_request(
                 request, credentials={"MISTRAL_API_KEY": "test-key"}
             )
 
@@ -300,7 +302,7 @@ class TestSendRequest:
         ]
         mock_resp = _mock_chat_response(content=content, reasoning_tokens=42)
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            result = MistralProvider._send_request(
+            result = MistralProvider._send_completion_request(
                 _make_request(thinking_effort="high"),
                 credentials={"MISTRAL_API_KEY": "test-key"},
             )
@@ -316,7 +318,7 @@ class TestSendRequest:
         ]
         mock_resp = _mock_chat_response(content=content)
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            result = MistralProvider._send_request(
+            result = MistralProvider._send_completion_request(
                 _make_request(thinking_effort="high"),
                 credentials={"MISTRAL_API_KEY": "test-key"},
             )

@@ -316,7 +316,7 @@ class TestExtractThinking:
 
 
 # ---------------------------------------------------------------------------
-# _send_request — basic text completion
+# _send_completion_request — basic text completion
 # ---------------------------------------------------------------------------
 
 
@@ -324,7 +324,7 @@ class TestSendRequest:
     def test_basic_text_completion(self):
         mock_resp = _mock_chat_response(content="Hello there!")
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = OpenaiProvider._send_request(
+            result = OpenaiProvider._send_completion_request(
                 _make_request(), credentials={"OPENAI_API_KEY": "sk-test"}
             )
 
@@ -343,7 +343,7 @@ class TestSendRequest:
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"output": []}
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            result = OpenaiProvider._send_request(
+            result = OpenaiProvider._send_completion_request(
                 _make_request(), credentials={"OPENAI_API_KEY": "sk-test"}
             )
         assert result.content == ""
@@ -374,7 +374,7 @@ class TestSendRequest:
             },
         }
         with patch("lmdk.provider.requests.post", return_value=resp):
-            result = OpenaiProvider._send_request(
+            result = OpenaiProvider._send_completion_request(
                 _make_request(), credentials={"OPENAI_API_KEY": "sk-test"}
             )
 
@@ -388,7 +388,7 @@ class TestSendRequest:
         request = _make_request(output_schema=Person)
 
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = OpenaiProvider._send_request(
+            result = OpenaiProvider._send_completion_request(
                 request, credentials={"OPENAI_API_KEY": "sk-test"}
             )
 

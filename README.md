@@ -14,6 +14,7 @@ What it offers:
 - Bring Your Own Key (for each provider)
 - Optional Telemetry following OpenTelemetry GenAI Semantic Conventions
 - In-process observation hook (`observe()`) to capture request/response pairs from wrapped code
+- Decision models (non-generative encoders) like [Jev](https://docs.typesafe.ai/introduction) or [Laya](https://laya.convaiinnovations.com/) via `decide()`: label probabilities for typed questions
 
 What it does **NOT** offer:
 
@@ -22,7 +23,6 @@ What it does **NOT** offer:
 - Multimodality (only text-in, text-out)
 - Shady under-the-hood prompt modification (e.g. to force structured output)
 - API gateways
-- "Decision" models (non-generative) like [Laya](https://laya.convaiinnovations.com/) or [Jev](https://docs.typesafe.ai/introduction)
 
 If you are looking for a more constrained but out-of-the-box agent interface, I'd recommend [pydantic-ai](https://ai.pydantic.dev) or [haystack-ai](https://docs.haystack.deepset.ai/docs/generators).
 If you are looking to keep granular control but extend on tools or multimodality, I'd recommend [litellm](https://docs.litellm.ai/docs/) or leveraging the OpenAI-compatible endpoints that providers normally set up.
@@ -228,6 +228,45 @@ returns its own result but you also want to inspect the underlying LM calls.
 Streaming completions are not recorded.
 </details>
 
+## Decisions
+
+Decision models are encoders: instead of generating text, they return a probability
+for each label of each question, in a single forward pass. Every question is evaluated
+independently against the same `state`, in one request.
+
+```python
+from lmdk import Question, decide
+
+response = decide(
+    model="typesafe:jev-latest",  # or "laya:english@localhost:8000" for a self-hosted laya-serve
+    state={"message": "I was billed twice for March, refund it or I cancel."},
+    questions={
+        "department": Question(
+            text="Which team should handle `message`?",
+            labels={"billing": "invoices, payments, refunds", "technical": "bugs, outages"},
+        ),
+        "urgency": Question(
+            text="How urgent is `message`?",
+            labels={"low": "can wait", "medium": "this week", "high": "today"},
+            is_ordered=True,
+        ),
+        "churn": Question(
+            text="Does the customer threaten to leave?",
+            labels={"yes": "mentions cancelling or leaving", "no": "no such threat"},
+        ),
+    },
+)
+response.probabilities  # {"department": {"billing": 0.97, "technical": 0.03}, "urgency": {...}, ...}
+```
+
+- A `Question` is its text plus labels, each with a description. Set `is_ordered=True`
+  when the labels form a scale (in insertion order). Labels that are a yes/no (or
+  true/false) pair use the provider's dedicated yes/no head.
+- `state` is a string or a dict; a dict keeps its structure, so questions can
+  reference fields by path (`` `message` ``).
+- Model fallbacks work as in `complete`. Batching, telemetry and `observe()` cover
+  completions only for now.
+
 ## Telemetry
 
 Telemetry is off by default and adds no required dependencies to the default install.
@@ -322,8 +361,9 @@ def configure_grafana_traces() -> None:
 
 ```text
 src/lmdk/
-├── core.py         # Entry points: complete, complete_batch
-├── datatypes.py    # Common message and response schemas
+├── completion.py   # Entry points: complete, complete_batch
+├── decision.py     # Entry point: decide
+├── datatypes.py    # Common message, question and response schemas
 ├── provider.py     # Base Provider class and registry
 ├── providers/      # Concrete implementations (Mistral, Vertex, etc.)
 ├── errors.py       # Unified HTTP and API error handling

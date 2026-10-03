@@ -134,7 +134,7 @@ class TestAuthHeaders:
 
 
 # ---------------------------------------------------------------------------
-# _send_request
+# _send_completion_request
 # ---------------------------------------------------------------------------
 
 
@@ -142,7 +142,7 @@ class TestSendRequest:
     def test_basic_text_completion(self):
         mock_resp = _mock_chat_response(content="Hello there!")
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = LocalProvider._send_request(_make_request(), credentials={})
+            result = LocalProvider._send_completion_request(_make_request(), credentials={})
 
         assert isinstance(result, RawResponse)
         assert result.content == "Hello there!"
@@ -165,7 +165,7 @@ class TestSendRequest:
         mock_resp = _mock_chat_response()
         request = _make_request(generation_kwargs={"temperature": 0.9, "max_tokens": 10})
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            LocalProvider._send_request(request, credentials={})
+            LocalProvider._send_completion_request(request, credentials={})
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         assert payload["temperature"] == 0.9
@@ -176,7 +176,7 @@ class TestSendRequest:
         mock_resp = _mock_chat_response(content=content)
         request = _make_request(output_schema=Person)
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = LocalProvider._send_request(request, credentials={})
+            result = LocalProvider._send_completion_request(request, credentials={})
 
         assert result.content == content
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
@@ -257,7 +257,7 @@ class TestSendRequestThinking:
             },
         )
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            result = LocalProvider._send_request(_make_request(), credentials={})
+            result = LocalProvider._send_completion_request(_make_request(), credentials={})
 
         assert result.content == "42"
         assert result.thinking == "counting..."
@@ -270,7 +270,7 @@ class TestSendRequestThinking:
         ]
         mock_resp = _mock_chat_response(message={"content": content})
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            result = LocalProvider._send_request(_make_request(), credentials={})
+            result = LocalProvider._send_completion_request(_make_request(), credentials={})
 
         assert result.content == "ok"
         assert result.thinking == "hmm"
@@ -323,7 +323,7 @@ class TestErrorClassification:
             patch("lmdk.provider.requests.post", return_value=mock_resp),
             pytest.raises(RequestTooLargeError) as exc_info,
         ):
-            LocalProvider._send_request(_make_request(), credentials={})
+            LocalProvider._send_completion_request(_make_request(), credentials={})
 
         assert exc_info.value.status_code == 413
         assert "exceeds the available context size" in str(exc_info.value)

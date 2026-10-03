@@ -40,7 +40,7 @@ class AssistantMessage(Message):
 class CompletionRequest:
     """Bundles the common parameters for a completion call.
 
-    Built by ``lmdk.core.complete`` and threaded through the provider
+    Built by ``lmdk.completion.complete`` and threaded through the provider
     layer so that adding a new parameter is a single-field change here.
     """
 
@@ -219,3 +219,54 @@ class CompletionBatch:
             return list(chain.from_iterable(individual))
 
         return individual
+
+
+# Decision (encoders) ---------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Question:
+    """A question for a decision model to answer about a ``state``.
+
+    Attributes:
+        text: The question itself.
+        labels: The possible answers, each mapped to a description.
+        is_ordered: Whether the labels form an ordinal scale (e.g. bad < neutral < good),
+            in insertion order.
+    """
+
+    text: str
+    labels: dict[str, str]
+    is_ordered: bool = False
+
+    def __post_init__(self):
+        if len(self.labels) < 2:
+            raise ValueError(f"A question needs at least 2 labels, got {len(self.labels)}.")
+
+
+@dataclass(frozen=True)
+class DecisionRequest:
+    """Bundles the parameters for a decision call. Built by ``lmdk.decision.decide``."""
+
+    model_id: str
+    state: str | dict[str, Any]
+    questions: dict[str, Question]
+    calling_service: str | None = None
+
+
+@dataclass(frozen=True)
+class DecisionResponse:
+    """The result of a single decision call.
+
+    Attributes:
+        probabilities: Keyed by question name, then by label, the probability the
+            model assigned to that label.
+        input_tokens: The number of tokens consumed in the input.
+        output_tokens: The number of tokens reported as output by the provider.
+        latency: The time in seconds taken to get the response.
+    """
+
+    probabilities: dict[str, dict[str, float]]
+    input_tokens: int
+    output_tokens: int
+    latency: float = 0.0

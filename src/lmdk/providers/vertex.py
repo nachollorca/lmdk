@@ -300,7 +300,9 @@ class VertexProvider(Provider):
     # ── Provider interface implementation ─────────────────────────────────
 
     @classmethod
-    def _send_request(cls, request: CompletionRequest, credentials: dict[str, str]) -> RawResponse:
+    def _send_completion_request(
+        cls, request: CompletionRequest, credentials: dict[str, str]
+    ) -> RawResponse:
         model, location = cls._parse_model_id(request.model_id)
         project_id = credentials["GCP_PROJECT_ID"]
 
