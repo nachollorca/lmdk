@@ -41,6 +41,10 @@ uv add 'lmdk[telemetry]'
 
 ## Usage
 
+### Completions
+
+Check the expanders below for different use cases of generative language models.
+
 ```python
 from lmdk import complete
 
@@ -228,11 +232,9 @@ returns its own result but you also want to inspect the underlying LM calls.
 Streaming completions are not recorded.
 </details>
 
-## Decisions
+### Decisions
 
-Decision models are encoders: instead of generating text, they return a probability
-for each label of each question, in a single forward pass. Every question is evaluated
-independently against the same `state`, in one request.
+Decision models are encoders (non-generative): instead of generating text, they return a probability for each label of each question, in a single forward pass. Every question is evaluated independently against the same `state`, in one request.
 
 ```python
 from lmdk import Question, decide
@@ -259,13 +261,9 @@ response = decide(
 response.probabilities  # {"department": {"billing": 0.97, "technical": 0.03}, "urgency": {...}, ...}
 ```
 
-- A `Question` is its text plus labels, each with a description. Set `is_ordered=True`
-  when the labels form a scale (in insertion order). Labels that are a yes/no (or
-  true/false) pair use the provider's dedicated yes/no head.
-- `state` is a string or a dict; a dict keeps its structure, so questions can
-  reference fields by path (`` `message` ``).
-- Model fallbacks work as in `complete`. Batching, telemetry and `observe()` cover
-  completions only for now.
+- A `Question` is its text plus labels, each with a description. Set `is_ordered=True` when the labels form a scale (in insertion order). Labels that are a yes/no (or true/false) pair use the provider's dedicated yes/no head.
+- `state` is a string or a dict; a dict keeps its structure, so questions can reference fields by path (`` `message` ``).
+- Model fallbacks work as in `complete`. Batching, telemetry and `observe()` cover completions only for now.
 
 ## Telemetry
 
