@@ -5,9 +5,6 @@ from lmdk.providers._chat_completions import ChatCompletionsProvider
 
 MISTRAL_BASE_URL = "https://api.mistral.ai/v1"
 
-# Sampling controls Mistral rejects when ``reasoning_effort`` is enabled.
-_REASONING_INCOMPATIBLE_KWARGS = ("temperature", "top_p")
-
 
 class MistralProvider(ChatCompletionsProvider):
     """Provider for models hosted on the Mistral API.
@@ -32,15 +29,17 @@ class MistralProvider(ChatCompletionsProvider):
         Mistral adjustable reasoning models only accept ``reasoning_effort``
         "none" or "high" (low/medium return 400), so any non-"none" lmdk
         ``thinking_effort`` maps to "high" and cross-provider effort levels still
-        enable reasoning. A caller-provided ``reasoning_effort`` wins. Reasoning
-        models also reject sampling controls like temperature/top_p (lmdk
-        defaults temperature to 0), so those are dropped.
+        enable reasoning. A caller-provided ``reasoning_effort`` wins.
+
+        Greedy sampling (lmdk defaults ``temperature`` to 0) is rejected unless
+        ``top_p`` is explicitly 1, because Mistral's server-side default top_p
+        is lower; send it so the default call goes through.
         """
         payload = super()._build_payload(request, model, stream=stream)
         if request.thinking_effort != "none":
-            for key in _REASONING_INCOMPATIBLE_KWARGS:
-                payload.pop(key, None)
             payload.setdefault("reasoning_effort", "high")
+        if payload.get("temperature") == 0:
+            payload.setdefault("top_p", 1)
         return payload
 
     @classmethod
