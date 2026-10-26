@@ -147,19 +147,39 @@ class TestBuildPayloadThinking:
         payload = MistralProvider._build_payload(request, MODEL_ID)
         assert payload["reasoning_effort"] == "sentinel-override"
 
-    def test_drops_sampling_kwargs_when_reasoning(self):
+    def test_keeps_sampling_kwargs_when_reasoning(self):
         request = _make_request(
             thinking_effort="high",
-            generation_kwargs={"temperature": 0, "top_p": 0.9},
+            generation_kwargs={"temperature": 0.7, "top_p": 0.9},
         )
         payload = MistralProvider._build_payload(request, MODEL_ID)
-        assert "temperature" not in payload
-        assert "top_p" not in payload
+        assert payload["temperature"] == 0.7
+        assert payload["top_p"] == 0.9
+
+    def test_greedy_sampling_with_reasoning_forces_top_p_one(self):
+        request = _make_request(thinking_effort="high", generation_kwargs={"temperature": 0})
+        payload = MistralProvider._build_payload(request, MODEL_ID)
+        assert payload["top_p"] == 1
 
     def test_keeps_sampling_kwargs_when_not_reasoning(self):
         request = _make_request(generation_kwargs={"temperature": 0})
         payload = MistralProvider._build_payload(request, MODEL_ID)
         assert payload["temperature"] == 0
+
+    def test_greedy_sampling_forces_top_p_one(self):
+        request = _make_request(generation_kwargs={"temperature": 0})
+        payload = MistralProvider._build_payload(request, MODEL_ID)
+        assert payload["top_p"] == 1
+
+    def test_greedy_sampling_keeps_explicit_top_p(self):
+        request = _make_request(generation_kwargs={"temperature": 0, "top_p": 0.9})
+        payload = MistralProvider._build_payload(request, MODEL_ID)
+        assert payload["top_p"] == 0.9
+
+    def test_no_top_p_when_not_greedy(self):
+        request = _make_request(generation_kwargs={"temperature": 0.7})
+        payload = MistralProvider._build_payload(request, MODEL_ID)
+        assert "top_p" not in payload
 
 
 # ---------------------------------------------------------------------------
