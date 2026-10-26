@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.14.1 (2026-10-26)
+
+### Bug Fixes
+
+- **mistral**: Send top_p=1 for greedy sampling
+  ([`349124a`](https://github.com/nachollorca/lmdk/commit/349124afd2805b0b54f9dfc9c18a323f3643bae7))
+
+
 ## v2.14.0 (2026-10-03)
 
 ### Documentation
