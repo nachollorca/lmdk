@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.14.2 (2026-11-04)
+
+### Bug Fixes
+
+- **bedrock**: Use native output_config.format for structured output
+  ([`bc2ed07`](https://github.com/nachollorca/lmdk/commit/bc2ed075edd4625ac55170a1f91765e0f22a96f0))
+
+
 ## v2.14.1 (2026-10-26)
 
 ### Bug Fixes
