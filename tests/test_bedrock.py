@@ -11,7 +11,6 @@ from pydantic import BaseModel
 
 from lmdk.errors import TruncatedResponseError
 from lmdk.providers.bedrock import (
-    _SCHEMA_TOOL,
     BEDROCK_ANTHROPIC_VERSION,
     DEFAULT_REGION,
     BedrockProvider,
@@ -83,13 +82,23 @@ class TestBuildPayload:
         assert payload["thinking"] == {"type": "adaptive"}
         assert payload["output_config"] == {"effort": "medium"}
 
-    def test_output_schema_becomes_forced_tool_call(self):
+    def test_output_schema_uses_native_output_config(self):
         payload = BedrockProvider._build_payload(
             make_completion_request(model_id=MODEL, output_schema=Person)
         )
-        assert "output_config" not in payload
-        assert payload["tool_choice"] == {"type": "tool", "name": _SCHEMA_TOOL}
-        assert payload["tools"][0]["input_schema"]["properties"].keys() == {"name", "age"}
+        schema_format = payload["output_config"]["format"]
+        assert schema_format["type"] == "json_schema"
+        assert schema_format["schema"]["properties"].keys() == {"name", "age"}
+        assert schema_format["schema"]["additionalProperties"] is False
+        assert "tools" not in payload
+        assert "tool_choice" not in payload
+
+    def test_thinking_and_schema_share_output_config(self):
+        payload = BedrockProvider._build_payload(
+            make_completion_request(model_id=MODEL, thinking_effort="high", output_schema=Person)
+        )
+        assert payload["output_config"].keys() == {"effort", "format"}
+        assert payload["output_config"]["effort"] == "high"
 
 
 class TestSendRequest:
@@ -117,20 +126,12 @@ class TestSendRequest:
         assert (raw.content, raw.thinking) == ("hi", "hmm")
         assert (raw.input_tokens, raw.output_tokens, raw.thinking_tokens) == (11, 7, 3)
 
-    @pytest.mark.parametrize("key", ["$PARAMETER_NAME", "$PARAMETER_VALUE"])
-    def test_placeholder_wrapper_is_unwrapped(self, key):
+    def test_structured_output_returned_from_text_block(self):
         resp = self._mock_response(
-            [{"type": "tool_use", "name": _SCHEMA_TOOL, "input": {key: {"name": "Ada", "age": 36}}}]
-        )
-        with patch("lmdk.provider.requests.post", return_value=resp):
-            raw = BedrockProvider._send_completion_request(
-                make_completion_request(model_id=MODEL, output_schema=Person), CREDENTIALS
-            )
-        assert Person.model_validate_json(raw.content) == Person(name="Ada", age=36)
-
-    def test_tool_use_is_serialized_as_json(self):
-        resp = self._mock_response(
-            [{"type": "tool_use", "name": _SCHEMA_TOOL, "input": {"name": "Ada", "age": 36}}]
+            [
+                {"type": "thinking", "thinking": "hmm"},
+                {"type": "text", "text": '{"name": "Ada", "age": 36}'},
+            ]
         )
         with patch("lmdk.provider.requests.post", return_value=resp):
             raw = BedrockProvider._send_completion_request(
@@ -165,13 +166,16 @@ class TestStreamResponse:
 
 
 class TestTruncation:
-    def test_max_tokens_stop_reason_raises_instead_of_empty_tool_input(self, monkeypatch):
+    def test_max_tokens_stop_reason_raises_instead_of_partial_json(self, monkeypatch):
         monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "token-123")
         resp = MagicMock()
         resp.status_code = 200
         resp.json.return_value = {
             "stop_reason": "max_tokens",
-            "content": [{"type": "tool_use", "name": _SCHEMA_TOOL, "input": {}}],
+            "content": [
+                {"type": "thinking", "thinking": "The text gives a name and an age at death..."},
+                {"type": "text", "text": '{"name": "Ada", "ag'},
+            ],
             "usage": {"input_tokens": 11, "output_tokens": 32000},
         }
         with (
@@ -179,5 +183,8 @@ class TestTruncation:
             pytest.raises(TruncatedResponseError, match="max_tokens"),
         ):
             BedrockProvider.complete(
-                make_completion_request(model_id=MODEL, output_schema=Person), stream=False
+                make_completion_request(
+                    model_id=MODEL, output_schema=Person, thinking_effort="high"
+                ),
+                stream=False,
             )
