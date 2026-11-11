@@ -14,7 +14,7 @@ What it offers:
 - Bring Your Own Key (for each provider)
 - Optional Telemetry following OpenTelemetry GenAI Semantic Conventions
 - In-process observation hook (`observe()`) to capture request/response pairs from wrapped code
-- Decision models (non-generative encoders) like [Jev](https://docs.typesafe.ai/introduction) or [Laya](https://laya.convaiinnovations.com/) via `decide()`: label probabilities for typed questions
+- Decision models (non-generative encoders) like [Jev](https://docs.typesafe.ai/introduction), [GLiDE](https://docs.fastino.ai/inference/systemone) or [Laya](https://laya.convaiinnovations.com/) via `decide()`: label probabilities for typed questions
 
 What it does **NOT** offer:
 
@@ -240,7 +240,7 @@ Decision models are encoders (non-generative): instead of generating text, they 
 from lmdk import Question, decide
 
 response = decide(
-    model="typesafe:jev-latest",  # or "laya:english@localhost:8000" for a self-hosted laya-serve
+    model="typesafe:jev-latest",  # or "fastino:glide", or "laya:english@localhost:8000" for a self-hosted laya-serve
     state={"message": "I was billed twice for March, refund it or I cancel."},
     questions={
         "department": Question(

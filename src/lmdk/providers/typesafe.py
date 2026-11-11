@@ -30,18 +30,6 @@ def _noul_labels(labels: dict[str, str]) -> tuple[str, str] | None:
     return (yes, no) if yes and no else None
 
 
-def _to_wire(question: Question) -> dict[str, Any]:
-    """Map a ``Question`` to a System One question object."""
-    if noul := _noul_labels(question.labels):
-        yes, no = noul
-        criteria = {"true": question.labels[yes], "false": question.labels[no]}
-        return {"type": "noul", "instructions": question.text, "criteria": criteria}
-    if question.is_ordered:
-        levels = [{"label": k, "description": v} for k, v in question.labels.items()]
-        return {"type": "score", "instructions": question.text, "criteria": levels}
-    return {"type": "choice", "instructions": question.text, "criteria": question.labels}
-
-
 def _from_wire(question: Question, answer: dict[str, Any]) -> dict[str, float]:
     """Map a System One answer back to ``{label: probability}``."""
     if answer["type"] == "noul":
@@ -69,6 +57,26 @@ class TypesafeProvider(Provider):
         return model_id, _BASE_URL
 
     @classmethod
+    def _score_criteria(cls, labels: dict[str, str]) -> list[Any]:
+        """Score criteria as an ordered list of ``{label, description}`` objects."""
+        return [{"label": k, "description": v} for k, v in labels.items()]
+
+    @classmethod
+    def _to_wire(cls, question: Question) -> dict[str, Any]:
+        """Map a ``Question`` to a System One question object."""
+        if noul := _noul_labels(question.labels):
+            yes, no = noul
+            criteria = {"true": question.labels[yes], "false": question.labels[no]}
+            return {"type": "noul", "instructions": question.text, "criteria": criteria}
+        if question.is_ordered:
+            return {
+                "type": "score",
+                "instructions": question.text,
+                "criteria": cls._score_criteria(question.labels),
+            }
+        return {"type": "choice", "instructions": question.text, "criteria": question.labels}
+
+    @classmethod
     def _send_decision_request(
         cls, request: DecisionRequest, credentials: dict[str, str]
     ) -> DecisionResponse:
@@ -76,7 +84,7 @@ class TypesafeProvider(Provider):
         body = {
             "model": model,
             "state": request.state,
-            "questions": {name: _to_wire(q) for name, q in request.questions.items()},
+            "questions": {name: cls._to_wire(q) for name, q in request.questions.items()},
         }
         response = cls._make_request(
             f"{base_url}/v1/systemone", json=body, headers=cls._build_auth_headers(credentials)

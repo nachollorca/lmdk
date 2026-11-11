@@ -23,7 +23,6 @@ from lmdk.datatypes import (
 from lmdk.errors import STATUS_TO_ERROR, AuthenticationError, ProviderError, TruncatedResponseError
 
 _TRUNCATED_FINISH_REASONS = {"length", "max_tokens", "max_output_tokens"}
-_RETRY_STATUSES = {429, 529}  # rate limited, overloaded
 
 
 def _parse_retry_after(retry_after: str | None) -> float | None:
@@ -108,6 +107,10 @@ class Provider(ABC):
     initial_delay: float = 1.0
     backoff_factor: float = 2.0
     max_delay: float = 60.0
+    # HTTP statuses retried with backoff (rate limited, overloaded, ...)
+    retry_statuses: frozenset[int] = frozenset({429, 529})
+    # read timeout in seconds passed to requests when set (None = wait forever)
+    request_timeout: float | None = None
 
     @classmethod
     def complete(
@@ -239,13 +242,16 @@ class Provider(ABC):
 
         Returns the :class:`requests.Response` on success.
         """
+        if cls.request_timeout is not None:
+            kwargs.setdefault("timeout", cls.request_timeout)
+
         for attempt in range(cls.max_retries + 1):
             response = requests.post(url, json=json, headers=headers, **kwargs)
 
             if response.status_code == 200:
                 return response
 
-            if response.status_code in _RETRY_STATUSES and attempt < cls.max_retries:
+            if response.status_code in cls.retry_statuses and attempt < cls.max_retries:
                 delay = _parse_retry_after(response.headers.get("Retry-After"))
                 if delay is None or delay < 0:
                     delay = _calculate_backoff(
