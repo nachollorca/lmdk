@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v2.15.0 (2026-11-11)
+
+### Features
+
+- **decision**: Round label probabilities to 5 decimals in Provider.decide
+  ([`b711d25`](https://github.com/nachollorca/lmdk/commit/b711d2515f0e1d020adce79bff123fb3a7ffaddb))
+
+- **fastino**: Add GLiDE provider for Fastino's System One API
+  ([`9606bdf`](https://github.com/nachollorca/lmdk/commit/9606bdf0d1366fde57ba31e988e8638bca54cd56))
+
+
 ## v2.14.2 (2026-11-04)
 
 ### Bug Fixes
