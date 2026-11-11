@@ -48,6 +48,19 @@ def test_builds_request_and_returns_response(provider):
     assert request.calling_service == "svc"
 
 
+def test_probabilities_rounded_to_5_decimals(provider, monkeypatch):
+    raw = DecisionResponse(
+        probabilities={"spam": {"yes": 0.123456789, "no": 0.876543211}},
+        input_tokens=3,
+        output_tokens=0,
+    )
+    monkeypatch.setattr(
+        DecideProvider, "_send_decision_request", classmethod(lambda cls, request, credentials: raw)
+    )
+    result = decide("fake:m", state="x", questions=QUESTIONS)
+    assert result.probabilities == {"spam": {"yes": 0.12346, "no": 0.87654}}
+
+
 def test_falls_back_to_second_model(provider):
     provider.failing = {"a"}
     result = decide(["fake:a", "fake:b"], state="Buy now", questions=QUESTIONS)
