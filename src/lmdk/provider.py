@@ -23,6 +23,7 @@ from lmdk.datatypes import (
 from lmdk.errors import STATUS_TO_ERROR, AuthenticationError, ProviderError, TruncatedResponseError
 
 _TRUNCATED_FINISH_REASONS = {"length", "max_tokens", "max_output_tokens"}
+_PROBABILITY_DECIMALS = 5  # label probabilities are rounded to this many decimals
 
 
 def _parse_retry_after(retry_after: str | None) -> float | None:
@@ -159,12 +160,21 @@ class Provider(ABC):
     def decide(cls, request: DecisionRequest) -> DecisionResponse:
         """Resolve API credentials, delegate to ``_send_decision_request`` and measure latency.
 
+        Label probabilities are rounded to ``_PROBABILITY_DECIMALS`` decimals for every
+        provider, so callers never see raw floating-point noise.
+
         See ``lmdk.decision.decide`` for parameter docs.
         """
         credentials = cls._resolve_credentials()
         start = time.perf_counter()
         response = cls._send_decision_request(request, credentials)
-        return dataclasses.replace(response, latency=time.perf_counter() - start)
+        probabilities = {
+            name: {label: round(p, _PROBABILITY_DECIMALS) for label, p in probs.items()}
+            for name, probs in response.probabilities.items()
+        }
+        return dataclasses.replace(
+            response, probabilities=probabilities, latency=time.perf_counter() - start
+        )
 
     @classmethod
     def request_reasoning_level(cls, request: CompletionRequest) -> str:
