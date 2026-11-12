@@ -1,26 +1,31 @@
-"""Implements the provider to use models hosted in Anthropic API.
+"""The Anthropic Messages API wire format (``/v1/messages``), addressed via ``@<address>``.
 
-This provider speaks Anthropic's Messages API. ``bedrock`` reuses it by plain
-subclassing (same payload shape, different envelope), which is cheaper than an
-abstract base. If a third provider consumes this shape, or if subclassing a
-concrete provider stops fitting, extract a ``MessagesProvider`` base the way
-``_chat_completions.ChatCompletionsProvider`` does for ``/chat/completions``.
+This shape speaks Anthropic's Messages API and is addressed explicitly through
+the model identifier's ``@`` suffix::
+
+    complete("messages:claude-sonnet-4@192.168.10.51:8000", "Hello")
+
+The address is mandatory for the bare shape and ``http://`` is assumed when it
+has no scheme. Servers that gate access with a token may set the optional
+``LOCAL_API_KEY`` environment variable, which is sent in the ``x-api-key``
+header (Anthropic's auth header format). The ``anthropic`` vendor subclasses
+this shape with the hosted default location and its own API key; ``bedrock``
+reuses it with an AWS-specific envelope.
 """
 
 from collections.abc import Iterator
 from typing import Any
 
 from lmdk.datatypes import CompletionRequest
-from lmdk.provider import Provider, RawResponse
+from lmdk.provider import RawResponse
+from lmdk.providers.shapes._base import ShapeProvider
 
-ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 
 # Anthropic requires ``max_tokens``, so a default is unavoidable. Current Claude
 # models cap output at 64k; legacy ones (3.x) cap at 4k-8k and reject anything
 # larger, so pass ``max_tokens`` explicitly when calling those.
 DEFAULT_MAX_TOKENS = 32000
-_SAMPLING_RESTRICTED_KWARGS = {"temperature", "top_p", "top_k"}
 
 # Sampling controls Anthropic rejects when ``thinking`` is enabled.
 _THINKING_INCOMPATIBLE_KWARGS = ("temperature", "top_p", "top_k")
@@ -58,18 +63,22 @@ def _prepare_schema_in_place(node: dict[str, Any]) -> None:
         _prepare_schema_in_place(node["items"])
 
 
-class AnthropicProvider(Provider):
-    """Provider for models hosted on the Anthropic API."""
+class MessagesProvider(ShapeProvider):
+    """Provider for any endpoint speaking Anthropic's Messages API (``/v1/messages``)."""
 
-    required_env = "ANTHROPIC_API_KEY"
+    path = "/v1/messages"
+
+    @classmethod
+    def _key_headers(cls, api_key: str) -> dict:
+        """Anthropic's auth header format is ``x-api-key``, not ``Bearer``."""
+        return {"x-api-key": api_key}
 
     @classmethod
     def _build_auth_headers(cls, credentials: dict[str, str]) -> dict:
-        """Return Anthropic API-key authentication headers."""
-        return {
-            "x-api-key": credentials["ANTHROPIC_API_KEY"],
-            "anthropic-version": ANTHROPIC_VERSION,
-        }
+        """Key header plus the ``anthropic-version`` header the wire format requires."""
+        headers = dict(super()._build_auth_headers(credentials))
+        headers["anthropic-version"] = ANTHROPIC_VERSION
+        return headers
 
     @classmethod
     def _build_messages(cls, request: CompletionRequest) -> list[dict]:
@@ -82,20 +91,20 @@ class AnthropicProvider(Provider):
 
     @classmethod
     def _normalize_generation_kwargs(cls, request: CompletionRequest) -> dict:
-        kwargs = dict(request.generation_kwargs or {})
-        # Newer Anthropic models reject sampling params; lmdk's global temperature=0
-        # default would otherwise trigger HTTP 400.
-        for key in _SAMPLING_RESTRICTED_KWARGS:
-            kwargs.pop(key, None)
-        return kwargs
+        """Pass generation kwargs through; vendors may drop unsupported controls."""
+        return dict(request.generation_kwargs or {})
 
     @classmethod
-    def _build_payload(cls, request: CompletionRequest, stream: bool = False) -> dict:
-        """Build the full request payload for the Anthropic API.
+    def _build_payload(
+        cls, request: CompletionRequest, model: str | None = None, stream: bool = False
+    ) -> dict:
+        """Build the full request payload for the Anthropic Messages API.
 
-        ``max_tokens`` is required by the Anthropic API. If not provided in
+        ``max_tokens`` is required by the API. If not provided in
         ``generation_kwargs``, ``DEFAULT_MAX_TOKENS`` is used.
         """
+        if model is None:
+            model = cls._parse_model_id(request.model_id)[0]
         generation_kwargs = cls._normalize_generation_kwargs(request)
         max_tokens = generation_kwargs.pop("max_tokens", DEFAULT_MAX_TOKENS)
 
@@ -113,7 +122,7 @@ class AnthropicProvider(Provider):
             effort = request.thinking_effort
 
         payload: dict = {
-            "model": request.model_id,
+            "model": model,
             "messages": cls._build_messages(request),
             "max_tokens": max_tokens,
             **generation_kwargs,
@@ -174,9 +183,10 @@ class AnthropicProvider(Provider):
     def _send_completion_request(
         cls, request: CompletionRequest, credentials: dict[str, str]
     ) -> RawResponse:
+        model, location = cls._parse_model_id(request.model_id)
         response = cls._make_request(
-            ANTHROPIC_API_URL,
-            json=cls._build_payload(request, stream=False),
+            cls._build_url(location),
+            json=cls._build_payload(request, model, stream=False),
             headers=cls._build_auth_headers(credentials),
         )
 
@@ -195,9 +205,10 @@ class AnthropicProvider(Provider):
     def _stream_response(
         cls, request: CompletionRequest, credentials: dict[str, str]
     ) -> Iterator[str]:
+        model, location = cls._parse_model_id(request.model_id)
         response = cls._make_request(
-            ANTHROPIC_API_URL,
-            json=cls._build_payload(request, stream=True),
+            cls._build_url(location),
+            json=cls._build_payload(request, model, stream=True),
             headers=cls._build_auth_headers(credentials),
             stream=True,
         )

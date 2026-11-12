@@ -1,42 +1,47 @@
-"""Shared base for providers speaking the OpenAI ``/chat/completions`` protocol.
+"""The OpenAI ``/v1/chat/completions`` wire format, addressed via ``@<address>``.
 
-Many providers -- hosted APIs (Mistral) and gateways (Lyceum, OpenRouter, …) as
+Many servers -- hosted APIs (Mistral) and gateways (Lyceum, OpenRouter, …) as
 well as local model servers (llama.cpp, vLLM, Ollama, LM Studio, …) -- expose
-the exact same OpenAI ``/chat/completions`` wire protocol: ``messages`` in,
-``choices[]`` out. This base class implements that protocol end to end (payload
-building, response parsing, streaming). A subclass with a fixed endpoint only
-needs ``base_url`` and ``_build_auth_headers``; providers whose endpoint varies
-per call override ``_parse_model_id`` / ``_build_url``.
+the exact same OpenAI ``/v1/chat/completions`` wire protocol: ``messages`` in,
+``choices[]`` out. This shape implements that protocol end to end (payload
+building, response parsing, streaming). Vendors with a fixed endpoint subclass
+it and set ``base_url``; the bare shape targets any server via the model
+identifier's ``@`` suffix::
+
+    complete("chat:Qwen3.6-27B-BF16@192.168.10.51:4000", "Hello")
+
+The address is mandatory for the bare shape and ``http://`` is assumed when it
+has no scheme. Servers that gate access with a token may set the optional
+``LOCAL_API_KEY`` environment variable, which is sent as a ``Bearer``
+credential.
 
 Thinking / reasoning is entirely backend-dependent: whether ``thinking_effort``
 has any effect, and whether responses expose ``reasoning_content``, thinking
 chunks, or token breakdowns, depends on the server, model, and how it was
-deployed. This base class only parses fields when they are present.
+deployed. This shape only parses fields when they are present.
 """
 
 from collections.abc import Iterator
 
 from lmdk.datatypes import CompletionRequest
 from lmdk.errors import ProviderError, RequestTooLargeError
-from lmdk.provider import Provider, RawResponse
+from lmdk.provider import RawResponse
 from lmdk.providers._schema import prepare_schema
+from lmdk.providers.shapes._base import ShapeProvider
 
 
-class ChatCompletionsProvider(Provider):
-    """Base provider for any OpenAI-compatible ``/chat/completions`` endpoint.
+class ChatProvider(ShapeProvider):
+    """Provider for any OpenAI-compatible ``/v1/chat/completions`` endpoint.
 
     Built on the OpenAI framework: request payloads and response parsing follow
     OpenAI's Chat Completions API (``messages`` in, ``choices[]`` out), so any
     server or gateway implementing that wire protocol works unchanged.
 
     Subclasses set ``base_url`` (everything up to but excluding
-    ``/chat/completions``) and implement ``_build_auth_headers``. Providers whose
-    endpoint is not fixed (e.g. ``local``) override ``_parse_model_id`` and
-    ``_build_url`` instead.
+    ``/v1/chat/completions``) to make the ``@<address>`` suffix optional.
     """
 
-    # Fixed endpoint, up to but excluding ``/chat/completions``.
-    base_url: str = ""
+    path = "/v1/chat/completions"
 
     @classmethod
     def _classify_error(
@@ -59,20 +64,6 @@ class ChatCompletionsProvider(Provider):
             ):
                 return RequestTooLargeError, 413
         return super()._classify_error(status_code, data, message)
-
-    @classmethod
-    def _parse_model_id(cls, model_id: str) -> tuple[str, str]:
-        """Split ``model_id`` into ``(model, location)``.
-
-        The default treats the whole id as the model and the fixed ``base_url``
-        as the location, which ``_build_url`` turns into an endpoint.
-        """
-        return model_id, cls.base_url
-
-    @classmethod
-    def _build_url(cls, location: str) -> str:
-        """Build the chat-completions URL from a ``location``."""
-        return f"{location.rstrip('/')}/chat/completions"
 
     @classmethod
     def _build_prompt_payload(cls, request: CompletionRequest) -> list[dict]:
@@ -137,7 +128,7 @@ class ChatCompletionsProvider(Provider):
     def _extract_thinking_from_chunks(content: list) -> str | None:
         """Join thinking text from a list-shaped message ``content``."""
         parts = [
-            ChatCompletionsProvider._thinking_text_from_chunk(chunk)
+            ChatProvider._thinking_text_from_chunk(chunk)
             for chunk in content
             if chunk.get("type") == "thinking"
         ]
@@ -158,7 +149,7 @@ class ChatCompletionsProvider(Provider):
 
         content = message.get("content")
         if isinstance(content, list):
-            return ChatCompletionsProvider._extract_thinking_from_chunks(content)
+            return ChatProvider._extract_thinking_from_chunks(content)
 
         return None
 

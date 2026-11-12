@@ -9,12 +9,12 @@ What it offers:
 - Comfy structured outputs via Pydantic models
 - Parallel completions
 - Unified HTTP error handling
-- Easy location config (for providers with multiple datacenters like AWS Bedrock, GCP Vertex and Azure)
+- Easy location config: shapes (`chat:`, `responses:`, `messages:`, `systemone:`) are addressed via `@<host>[:<port>]`, vendors (`openai:`, `anthropic:`, ...) default to their hosted endpoint and let `@<address>` override it, and providers with multiple datacenters (AWS Bedrock, GCP Vertex) use `@<region>`
 - Model fallbacks
 - Bring Your Own Key (for each provider)
 - Optional Telemetry following OpenTelemetry GenAI Semantic Conventions
 - In-process observation hook (`observe()`) to capture request/response pairs from wrapped code
-- Decision models (non-generative encoders) like [Jev](https://docs.typesafe.ai/introduction), [GLiDE](https://docs.fastino.ai/inference/systemone) or [Laya](https://laya.convaiinnovations.com/) via `decide()`: label probabilities for typed questions
+- Decision models (non-generative encoders) like [Jev](https://docs.typesafe.ai/introduction), [GLiDE](https://docs.fastino.ai/inference/systemone) or self-hosted [Laya](https://laya.convaiinnovations.com/) servers via `decide()`: label probabilities for typed questions
 
 What it does **NOT** offer:
 
@@ -111,20 +111,40 @@ response = complete(model=["mistral:nonexistent-model", model], prompt="Hi")
 </details>
 
 <details>
-<summary>Local models</summary>
+<summary>Shapes, vendors and locations</summary>
 
-Most local model servers (llama.cpp, vLLM, Ollama, LM Studio, etc.) expose an OpenAI-compatible `/v1/chat/completions` API. You can direct requests to any local or self-hosted endpoint using the `local:` provider prefix and providing the host/port via the `@location` suffix:
+A provider name is either a **shape** or a **vendor**:
 
-```python
-# Format: local:<model-id>@<host>[:<port>]
-response = complete(
-    model="local:Qwen3.6-27B-BF16@192.168.10.51:4000",
-    prompt="Hello!"
-)
-```
+- **Shapes** are wire formats only (`chat:` (OpenAIs legacy), `responses:` (OpenAI's new), `messages:` (Anthropic standard), `systemone:` (TypeSafe's Jev)). They have no hosted default, so the `@<address>` suffix is **required** and the request goes to `<address>` + the shape's path:
+
+  ```python
+  # Format: chat:<model-id>@<host>[:<port>]
+  # Most local model servers (llama.cpp, vLLM, Ollama, LM Studio, etc.) expose
+  # an OpenAI-compatible /v1/chat/completions API:
+  response = complete(
+      model="chat:Qwen3.6-27B-BF16@192.168.10.51:4000",
+      prompt="Hello!"
+  )
+  # same idea for the other shapes:
+  #   "responses:<model>@<host>[:<port>]"  -> POST <host>/v1/responses
+  #   "messages:<model>@<host>[:<port>]"   -> POST <host>/v1/messages
+  #   "systemone:<model>@<host>[:<port>]"  -> POST <host>/v1/systemone
+  ```
+
+- **Vendors** (`openai:`, `anthropic:`, `mistral:`, `openrouter:`, `lyceum:`, `typesafe:`, `fastino:`, ...) subclass a shape with a hosted default location and their own API key. The `@` suffix is **optional** and overrides the default location, so a self-hosted server that copies a vendor's API is reachable too:
+
+  ```python
+  # hosted default (sends FASTINO_API_KEY):
+  decide(model="fastino:glide", ...)
+  # self-hosted GLiDE server (sends LOCAL_API_KEY instead):
+  decide(model="fastino:glide@192.168.10.51:8100", ...)
+  ```
+
+Location rules:
 
 - If the location has no scheme, `http://` is assumed.
-- If the server requires authentication, set the `LOCAL_API_KEY` environment variable, which is automatically sent as a `Bearer` token.
+- `bedrock:` and `vertex:` keep their `@<region>` suffix (e.g. `vertex:gemini-2.5-flash@europe-west4`), which is a region, not an address.
+- If a server requires authentication, set the `LOCAL_API_KEY` environment variable. It is sent in the provider's auth header format (`Bearer`, `x-api-key` or `X-API-Key`).
 
 </details>
 
@@ -240,7 +260,7 @@ Decision models are encoders (non-generative): instead of generating text, they 
 from lmdk import Question, decide
 
 response = decide(
-    model="typesafe:jev-latest",  # or "fastino:glide", or "laya:english@localhost:8000" for a self-hosted laya-serve
+    model="typesafe:jev-latest",  # or "fastino:glide", or "systemone:english@localhost:8000" for a self-hosted laya-serve, or "fastino:glide@192.168.10.51:8100" for a self-hosted GLiDE server
     state={"message": "I was billed twice for March, refund it or I cancel."},
     questions={
         "department": Question(
@@ -359,13 +379,15 @@ def configure_grafana_traces() -> None:
 
 ```text
 src/lmdk/
-├── completion.py   # Entry points: complete, complete_batch
-├── decision.py     # Entry point: decide
-├── datatypes.py    # Common message, question and response schemas
-├── provider.py     # Base Provider class and registry
-├── providers/      # Concrete implementations (Mistral, Vertex, etc.)
-├── errors.py       # Unified HTTP and API error handling
-└── utils.py        # Shared helper functions
+├── completion.py       # Entry points: complete, complete_batch
+├── decision.py         # Entry point: decide
+├── datatypes.py        # Common message, question and response schemas
+├── provider.py         # Base Provider class and registry (shapes first, then vendors)
+├── providers/
+│   ├── shapes/         # Wire formats only, always need @<address> (chat, responses, messages, systemone)
+│   └── vendors/        # Hosted defaults on top of a shape (openai, anthropic, mistral, bedrock, vertex, ...)
+├── errors.py           # Unified HTTP and API error handling
+└── utils.py            # Shared helper functions
 ```
 
 ### Tooling

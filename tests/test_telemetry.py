@@ -9,8 +9,8 @@ from pydantic import BaseModel
 
 from lmdk.completion import complete
 from lmdk.datatypes import CompletionRequest, CompletionResponse, RawResponse, UserMessage
-from lmdk.providers.mistral import MistralProvider
-from lmdk.providers.openai import OpenaiProvider
+from lmdk.providers.vendors.mistral import MistralProvider
+from lmdk.providers.vendors.openai import OpenaiProvider
 from lmdk.telemetry import traced_completion
 
 

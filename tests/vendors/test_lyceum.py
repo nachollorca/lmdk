@@ -1,6 +1,6 @@
-"""Tests for lmdk.providers.lyceum — LyceumProvider.
+"""Tests for lmdk.providers.vendors.lyceum — LyceumProvider.
 
-The chat-completions protocol itself is covered by ``test_local.py``; these
+The chat-completions protocol itself is covered by ``tests/shapes/test_chat.py``; these
 tests only pin Lyceum's endpoint and authentication.
 """
 
@@ -11,7 +11,7 @@ from conftest import make_completion_request
 from pydantic import BaseModel
 
 from lmdk.provider import RawResponse
-from lmdk.providers.lyceum import LYCEUM_BASE_URL, LyceumProvider
+from lmdk.providers.vendors.lyceum import LYCEUM_BASE_URL, LyceumProvider
 
 MODEL_ID = "moonshotai/kimi-k3"
 CREDENTIALS = {"LYCEUM_API_KEY": "secret"}

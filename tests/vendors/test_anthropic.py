@@ -1,4 +1,4 @@
-"""Tests for lmdk.providers.anthropic — AnthropicProvider."""
+"""Tests for lmdk.providers.vendors.anthropic — AnthropicProvider."""
 
 import json
 from collections.abc import Sequence
@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from lmdk.datatypes import CompletionRequest, Message, ThinkingEffort
 from lmdk.provider import RawResponse
-from lmdk.providers.anthropic import (
+from lmdk.providers.vendors.anthropic import (
     ANTHROPIC_API_URL,
     ANTHROPIC_VERSION,
     DEFAULT_MAX_TOKENS,
@@ -638,3 +638,35 @@ class TestStreamResponse:
             )
 
         assert tokens == ["hi"]
+
+
+# ---------------------------------------------------------------------------
+# @<address> override (self-hosted Messages-compatible server)
+# ---------------------------------------------------------------------------
+
+
+class TestAddressOverride:
+    def test_hits_address_with_local_key_in_x_api_key_format(self, monkeypatch):
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.setenv("LOCAL_API_KEY", "local-secret")
+        mock_resp = _mock_chat_response()
+        request = _make_request(model_id="claude-sonnet-4@192.168.10.51:8000")
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            AnthropicProvider._send_completion_request(request, credentials={})
+
+        assert mock_post.call_args.args[0] == "http://192.168.10.51:8000/v1/messages"
+        assert mock_post.call_args.kwargs["headers"] == {
+            "x-api-key": "local-secret",
+            "anthropic-version": ANTHROPIC_VERSION,
+        }
+        assert mock_post.call_args.kwargs["json"]["model"] == "claude-sonnet-4"
+
+    def test_vendor_key_never_sent_to_address(self, monkeypatch):
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "vendor-secret")
+        monkeypatch.delenv("LOCAL_API_KEY", raising=False)
+        mock_resp = _mock_chat_response()
+        request = _make_request(model_id="claude-sonnet-4@10.0.0.5:8000")
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            AnthropicProvider._send_completion_request(request, credentials={})
+
+        assert mock_post.call_args.kwargs["headers"] == {"anthropic-version": ANTHROPIC_VERSION}

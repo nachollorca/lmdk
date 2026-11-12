@@ -1,4 +1,4 @@
-"""Tests for lmdk.providers.bedrock — BedrockProvider."""
+"""Tests for lmdk.providers.vendors.bedrock — BedrockProvider."""
 
 import base64
 import json
@@ -10,7 +10,7 @@ from conftest import make_completion_request
 from pydantic import BaseModel
 
 from lmdk.errors import TruncatedResponseError
-from lmdk.providers.bedrock import (
+from lmdk.providers.vendors.bedrock import (
     BEDROCK_ANTHROPIC_VERSION,
     DEFAULT_REGION,
     BedrockProvider,

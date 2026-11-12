@@ -1,4 +1,4 @@
-"""Tests for lmdk.providers.vertex — VertexProvider."""
+"""Tests for lmdk.providers.vendors.vertex — VertexProvider."""
 
 import json
 from collections.abc import Sequence
@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from lmdk.datatypes import AssistantMessage, CompletionRequest, Message, ThinkingEffort, UserMessage
 from lmdk.provider import RawResponse
-from lmdk.providers.vertex import DEFAULT_LOCATION, VertexProvider
+from lmdk.providers.vendors.vertex import DEFAULT_LOCATION, VertexProvider
 
 # ---------------------------------------------------------------------------
 # Helpers

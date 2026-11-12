@@ -1,13 +1,9 @@
-"""Tests for lmdk.providers.typesafe and lmdk.providers.laya."""
+"""Tests for lmdk.providers.vendors.typesafe — TypesafeProvider."""
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from lmdk.datatypes import DecisionRequest, Question
-from lmdk.errors import ProviderError
-from lmdk.providers.laya import LayaProvider
-from lmdk.providers.typesafe import TypesafeProvider
+from lmdk.providers.vendors.typesafe import TypesafeProvider
 
 QUESTIONS = {
     "spam": Question("Is this spam?", {"Yes": "unsolicited", "No": "legit"}),
@@ -70,19 +66,22 @@ def test_typesafe_request_and_response(monkeypatch):
     assert result.output_tokens == 0
 
 
-def test_laya_uses_location_and_optional_key(monkeypatch):
-    monkeypatch.delenv("LAYA_API_KEY", raising=False)
-    _, call = _decide(LayaProvider, "english@localhost:8000")
-    assert call.args[0] == "http://localhost:8000/v1/systemone"
+def test_vendor_with_address_override_uses_local_key(monkeypatch):
+    """``typesafe:jev@host`` hits the address and sends LOCAL_API_KEY, never the vendor key."""
+    monkeypatch.setenv("TYPESAFE_API_KEY", "vendor-secret")
+    monkeypatch.setenv("LOCAL_API_KEY", "local-secret")
+    result, call = _decide(TypesafeProvider, "jev-latest@192.168.10.51:8100")
+
+    assert call.args[0] == "http://192.168.10.51:8100/v1/systemone"
+    assert call.kwargs["headers"] == {"Authorization": "Bearer local-secret"}
+    assert call.kwargs["json"]["model"] == "jev-latest"
+    assert result.probabilities["dept"] == {"billing": 0.9, "tech": 0.1}
+
+
+def test_vendor_with_address_override_needs_no_env_var(monkeypatch):
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.delenv("LOCAL_API_KEY", raising=False)
+    _, call = _decide(TypesafeProvider, "jev-latest@https://jev.example.com/")
+
+    assert call.args[0] == "https://jev.example.com/v1/systemone"
     assert call.kwargs["headers"] == {}
-    assert call.kwargs["json"]["model"] == "english"
-
-    monkeypatch.setenv("LAYA_API_KEY", "s")
-    _, call = _decide(LayaProvider, "english@https://laya.example.com/")
-    assert call.args[0] == "https://laya.example.com/v1/systemone"
-    assert call.kwargs["headers"] == {"Authorization": "Bearer s"}
-
-
-def test_laya_requires_location():
-    with pytest.raises(ProviderError, match="endpoint"):
-        _decide(LayaProvider, "english")

@@ -1,26 +1,25 @@
-"""Implements the provider to use models hosted in Mistral API."""
+"""Vendor for models hosted in the Mistral API.
+
+Subclasses the ``chat`` shape with the hosted default location and the
+``MISTRAL_API_KEY`` credential; an ``@<address>`` suffix overrides the default
+location (then only the optional ``LOCAL_API_KEY`` is sent as a ``Bearer``
+token, never the vendor key).
+
+Mistral speaks the OpenAI ``/chat/completions`` protocol, so everything but
+authentication and the reasoning control comes from the ``chat`` shape.
+"""
 
 from lmdk.datatypes import CompletionRequest
-from lmdk.providers._chat_completions import ChatCompletionsProvider
+from lmdk.providers.shapes.chat import ChatProvider
 
-MISTRAL_BASE_URL = "https://api.mistral.ai/v1"
+MISTRAL_BASE_URL = "https://api.mistral.ai"
 
 
-class MistralProvider(ChatCompletionsProvider):
-    """Provider for models hosted on the Mistral API.
-
-    Mistral speaks the OpenAI ``/chat/completions`` protocol, so everything but
-    authentication and the reasoning control comes from
-    :class:`~lmdk.providers._chat_completions.ChatCompletionsProvider`.
-    """
+class MistralProvider(ChatProvider):
+    """Provider for models hosted on the Mistral API."""
 
     required_env = "MISTRAL_API_KEY"
     base_url = MISTRAL_BASE_URL
-
-    @classmethod
-    def _build_auth_headers(cls, credentials: dict[str, str]) -> dict:
-        """Return Mistral Bearer-token authentication headers."""
-        return {"Authorization": f"Bearer {credentials['MISTRAL_API_KEY']}"}
 
     @classmethod
     def _build_payload(cls, request: CompletionRequest, model: str, stream: bool = False) -> dict:

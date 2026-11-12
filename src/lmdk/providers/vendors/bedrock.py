@@ -1,14 +1,19 @@
-"""Implements the provider to use Anthropic models hosted in AWS Bedrock.
+"""Vendor for Anthropic models hosted in AWS Bedrock.
 
 Bedrock exposes Claude through ``InvokeModel``, which is the Anthropic Messages
 API with a different envelope: bearer-token auth, the model in the URL instead
 of the body, an ``anthropic_version`` field, and a binary event stream instead
 of SSE. Everything else (payload shape, thinking, structured output via
-``output_config.format``, response blocks) is identical, so this provider
-subclasses :class:`AnthropicProvider` and only patches the differences.
+``output_config.format``, response blocks) is identical, so this vendor
+subclasses :class:`~lmdk.providers.vendors.anthropic.AnthropicProvider` and only
+patches the differences.
 
 The one Bedrock-specific deviation in the wire format: streaming responses use
 ``application/vnd.amazon.eventstream`` framing.
+
+Here the ``@`` suffix is a **region**, not an address (e.g.
+``bedrock:eu.anthropic.claude-opus-5@eu-central-1``), so the AWS bearer token is
+always sent, as today.
 """
 
 import base64
@@ -18,7 +23,7 @@ from collections.abc import Iterator
 
 from lmdk.datatypes import CompletionRequest
 from lmdk.provider import RawResponse
-from lmdk.providers.anthropic import AnthropicProvider
+from lmdk.providers.vendors.anthropic import AnthropicProvider
 
 BEDROCK_ANTHROPIC_VERSION = "bedrock-2023-05-31"
 
@@ -36,6 +41,11 @@ class BedrockProvider(AnthropicProvider):
     # ── Auth ──────────────────────────────────────────────────────────────
 
     @classmethod
+    def _address_override(cls, model_id: str) -> str | None:
+        """Bedrock's ``@`` suffix is a region, not a user-supplied address."""
+        return None
+
+    @classmethod
     def _build_auth_headers(cls, credentials: dict[str, str]) -> dict:
         """Return Bedrock API-key (bearer token) authentication headers."""
         return {"Authorization": f"Bearer {credentials['AWS_BEARER_TOKEN_BEDROCK']}"}
@@ -43,13 +53,14 @@ class BedrockProvider(AnthropicProvider):
     # ── Model / region parsing ────────────────────────────────────────────
 
     @classmethod
-    def _build_url(cls, model_id: str, *, stream: bool) -> str:
-        """Construct the ``invoke`` endpoint URL for *model_id*.
+    def _build_url(cls, location: str, *, stream: bool = False) -> str:
+        """Construct the ``invoke`` endpoint URL for the model id in *location*.
 
         The model string may carry an ``@region`` suffix, e.g.
         ``"eu.anthropic.claude-opus-5@eu-central-1"``. Without it the region is
         inferred from the geo prefix of the model ID (``eu``/``us``/``au``).
         """
+        model_id = location
         if "@" in model_id:
             model, region = model_id.rsplit("@", 1)
         else:
@@ -61,14 +72,16 @@ class BedrockProvider(AnthropicProvider):
     # ── Request building ──────────────────────────────────────────────────
 
     @classmethod
-    def _build_payload(cls, request: CompletionRequest, stream: bool = False) -> dict:
+    def _build_payload(
+        cls, request: CompletionRequest, model: str | None = None, stream: bool = False
+    ) -> dict:
         """Adapt the Anthropic payload to the Bedrock ``InvokeModel`` body.
 
         The model and the stream flag move to the URL and ``anthropic_version``
         is required. Everything else, including ``output_config.format`` for
         structured output, passes through unchanged.
         """
-        payload = super()._build_payload(request, stream=stream)
+        payload = super()._build_payload(request, model, stream=stream)
         payload.pop("model", None)
         payload.pop("stream", None)
         payload["anthropic_version"] = BEDROCK_ANTHROPIC_VERSION

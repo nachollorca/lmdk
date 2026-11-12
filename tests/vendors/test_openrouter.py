@@ -1,4 +1,4 @@
-"""Tests for lmdk.providers.openrouter — OpenrouterProvider."""
+"""Tests for lmdk.providers.vendors.openrouter — OpenrouterProvider."""
 
 import json
 from unittest.mock import MagicMock, patch
@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from conftest import make_completion_request
 
 from lmdk.provider import RawResponse
-from lmdk.providers.openrouter import OPENROUTER_BASE_URL, OpenrouterProvider
+from lmdk.providers.vendors.openrouter import OPENROUTER_BASE_URL, OpenrouterProvider
 
 MODEL_ID = "anthropic/claude-sonnet-4.6"
 
