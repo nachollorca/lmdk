@@ -1,34 +1,29 @@
-"""Implements the provider to use models hosted in the OpenAI API.
+"""The OpenAI Responses API wire format (``/v1/responses``), addressed via ``@<address>``.
 
-This provider speaks OpenAI's Responses API (``input`` in, ``output[]`` out),
-which it is currently the only consumer of. If a second provider ever consumes
-this shape, extract the wire-format logic into a ``ResponsesProvider`` base the
-way ``_chat_completions.ChatCompletionsProvider`` does for
-``/chat/completions``. One implementation does not need an abstraction.
+This shape speaks OpenAI's Responses API (``input`` in, ``output[]`` out) and
+is addressed explicitly through the model identifier's ``@`` suffix::
+
+    complete("responses:gpt-5.5@192.168.10.51:8000", "Hello")
+
+The address is mandatory for the bare shape and ``http://`` is assumed when it
+has no scheme. Servers that gate access with a token may set the optional
+``LOCAL_API_KEY`` environment variable, which is sent as a ``Bearer``
+credential. The ``openai`` vendor subclasses this shape with the hosted default
+location and its own API key.
 """
 
 from collections.abc import Iterator
 
 from lmdk.datatypes import CompletionRequest
-from lmdk.provider import Provider, RawResponse
+from lmdk.provider import RawResponse
 from lmdk.providers._schema import prepare_schema
-
-OPENAI_API_URL = "https://api.openai.com/v1/responses"
-
-_TEMPERATURE_RESTRICTED_MODEL_PREFIXES = ("gpt-5", "o1", "o3", "o4")
-_TEMPERATURE_RESTRICTED_KWARGS = {"temperature", "top_p"}
-_MIN_MAX_OUTPUT_TOKENS = 16
+from lmdk.providers.shapes._base import ShapeProvider
 
 
-class OpenaiProvider(Provider):
-    """Provider for models hosted on the OpenAI API."""
+class ResponsesProvider(ShapeProvider):
+    """Provider for any endpoint speaking the OpenAI Responses API (``/v1/responses``)."""
 
-    required_env = "OPENAI_API_KEY"
-
-    @classmethod
-    def _build_auth_headers(cls, credentials: dict[str, str]) -> dict:
-        """Return OpenAI Bearer-token authentication headers."""
-        return {"Authorization": f"Bearer {credentials['OPENAI_API_KEY']}"}
+    path = "/v1/responses"
 
     @classmethod
     def _build_input(cls, request: CompletionRequest) -> list[dict]:
@@ -39,10 +34,9 @@ class OpenaiProvider(Provider):
     def _normalize_generation_kwargs(cls, request: CompletionRequest) -> dict:
         """Translate common kwargs to the OpenAI Responses API shape.
 
-        ``lmdk.completion.complete`` defaults to ``temperature=0`` for every
-        provider, but newer OpenAI reasoning/GPT-5 models reject custom
-        sampling controls and only allow their defaults. For those models we
-        drop unsupported sampling keys so a normal call succeeds.
+        ``max_tokens`` / ``max_completion_tokens`` become ``max_output_tokens``
+        and ``stop_sequences`` becomes ``stop``. Vendors override this to add
+        model-specific restrictions.
         """
         kwargs = dict(request.generation_kwargs or {})
 
@@ -52,22 +46,20 @@ class OpenaiProvider(Provider):
         if "max_completion_tokens" in kwargs:
             max_completion_tokens = kwargs.pop("max_completion_tokens")
             kwargs.setdefault("max_output_tokens", max_completion_tokens)
-        if "max_output_tokens" in kwargs and kwargs["max_output_tokens"] < _MIN_MAX_OUTPUT_TOKENS:
-            kwargs["max_output_tokens"] = _MIN_MAX_OUTPUT_TOKENS
         if "stop_sequences" in kwargs and "stop" not in kwargs:
             kwargs["stop"] = kwargs.pop("stop_sequences")
-
-        if request.model_id.startswith(_TEMPERATURE_RESTRICTED_MODEL_PREFIXES):
-            for key in _TEMPERATURE_RESTRICTED_KWARGS:
-                kwargs.pop(key, None)
 
         return kwargs
 
     @classmethod
-    def _build_payload(cls, request: CompletionRequest, stream: bool = False) -> dict:
+    def _build_payload(
+        cls, request: CompletionRequest, model: str | None = None, stream: bool = False
+    ) -> dict:
         """Build the full request payload for the OpenAI Responses API."""
+        if model is None:
+            model = cls._parse_model_id(request.model_id)[0]
         payload: dict = {
-            "model": request.model_id,
+            "model": model,
             "input": cls._build_input(request),
             "stream": stream,
             **cls._normalize_generation_kwargs(request),
@@ -93,7 +85,7 @@ class OpenaiProvider(Provider):
 
     @classmethod
     def request_reasoning_level(cls, request: CompletionRequest) -> str:
-        """Return ``reasoning.effort`` from the outbound OpenAI payload."""
+        """Return ``reasoning.effort`` from the outbound Responses API payload."""
         effort = cls._build_payload(request, stream=False).get("reasoning", {}).get("effort")
         return effort if effort is not None else "none"
 
@@ -130,9 +122,10 @@ class OpenaiProvider(Provider):
     def _send_completion_request(
         cls, request: CompletionRequest, credentials: dict[str, str]
     ) -> RawResponse:
+        model, location = cls._parse_model_id(request.model_id)
         response = cls._make_request(
-            OPENAI_API_URL,
-            json=cls._build_payload(request, stream=False),
+            cls._build_url(location),
+            json=cls._build_payload(request, model, stream=False),
             headers=cls._build_auth_headers(credentials),
         )
 
@@ -154,9 +147,10 @@ class OpenaiProvider(Provider):
     def _stream_response(
         cls, request: CompletionRequest, credentials: dict[str, str]
     ) -> Iterator[str]:
+        model, location = cls._parse_model_id(request.model_id)
         response = cls._make_request(
-            OPENAI_API_URL,
-            json=cls._build_payload(request, stream=True),
+            cls._build_url(location),
+            json=cls._build_payload(request, model, stream=True),
             headers=cls._build_auth_headers(credentials),
             stream=True,
         )
@@ -166,7 +160,3 @@ class OpenaiProvider(Provider):
                 token = chunk.get("delta", "")
                 if token:
                     yield token
-
-
-# Backwards-/ergonomics-friendly alias for users who prefer the official casing.
-OpenAIProvider = OpenaiProvider

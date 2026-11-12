@@ -1,4 +1,4 @@
-"""Tests for lmdk.providers.fastino."""
+"""Tests for lmdk.providers.vendors.fastino."""
 
 from unittest.mock import MagicMock, patch
 
@@ -6,7 +6,7 @@ import pytest
 
 from lmdk.datatypes import DecisionRequest, Question
 from lmdk.errors import ProviderError, ServiceUnavailableError
-from lmdk.providers.fastino import FastinoProvider
+from lmdk.providers.vendors.fastino import FastinoProvider
 
 QUESTIONS = {
     "spam": Question("Is this spam?", {"Yes": "unsolicited", "No": "legit"}),
@@ -127,7 +127,7 @@ def test_503_retries_then_raises_service_unavailable(monkeypatch):
 def test_425_not_retried_by_typesafe_defaults():
     # the base retry set stays {429, 529}; only Fastino adds 425/503
     assert FastinoProvider.retry_statuses == frozenset({425, 429, 503})
-    from lmdk.providers.typesafe import TypesafeProvider
+    from lmdk.providers.vendors.typesafe import TypesafeProvider
 
     assert TypesafeProvider.retry_statuses == frozenset({429, 529})
 
@@ -148,3 +148,57 @@ def test_422_raises_provider_error_without_retry(monkeypatch):
     assert exc_info.value.status_code == 422
     assert post.call_count == 1
     assert sleep.call_count == 0
+
+
+# ---------------------------------------------------------------------------
+# @<address> override (self-hosted GLiDE server)
+# ---------------------------------------------------------------------------
+
+
+def test_decide_fastino_glide_at_address(monkeypatch):
+    """``decide("fastino:glide@192.168.10.51:8100", ...)`` hits the address, needs no
+    FASTINO_API_KEY, and sends LOCAL_API_KEY in Fastino's ``X-API-Key`` format."""
+    from lmdk import decide
+
+    monkeypatch.delenv("FASTINO_API_KEY", raising=False)
+    monkeypatch.setenv("LOCAL_API_KEY", "local-secret")
+
+    resp = MagicMock(status_code=200)
+    resp.json.return_value = {
+        "model": "fastino/GLiDE",
+        "answers": ANSWERS,
+        "usage": {"input_tokens": 7, "output_tokens": 3},
+    }
+    with patch("lmdk.provider.requests.post", return_value=resp) as post:
+        result = decide(
+            model="fastino:glide@192.168.10.51:8100",
+            state={"body": "hi"},
+            questions=QUESTIONS,
+        )
+
+    assert post.call_args.args[0] == "http://192.168.10.51:8100/v1/systemone"
+    # LOCAL_API_KEY in the vendor's header format; the vendor key is never sent
+    assert post.call_args.kwargs["headers"] == {"X-API-Key": "local-secret"}
+    body = post.call_args.kwargs["json"]
+    assert body["model"] == "fastino/GLiDE"  # glide alias still applies
+    assert body["questions"]["urgency"]["criteria"] == ["can wait", "now"]  # GLiDE quirk
+    # noul, choice and score answers all come back
+    assert result.probabilities == {
+        "spam": {"Yes": 0.75, "No": 0.25},
+        "urgency": {"low": 0.2, "high": 0.8},
+        "dept": {"billing": 0.9, "tech": 0.1},
+    }
+
+
+def test_vendor_key_never_sent_to_address(monkeypatch):
+    monkeypatch.setenv("FASTINO_API_KEY", "vendor-secret")
+    monkeypatch.delenv("LOCAL_API_KEY", raising=False)
+    request = DecisionRequest(model_id="glide@10.0.0.5:9000", state="hi", questions=QUESTIONS)
+    resp = MagicMock(status_code=200)
+    resp.json.return_value = {"answers": ANSWERS, "usage": {"input_tokens": 1, "output_tokens": 1}}
+    with patch("lmdk.provider.requests.post", return_value=resp) as post:
+        FastinoProvider.decide(request)
+
+    assert post.call_args.args[0] == "http://10.0.0.5:9000/v1/systemone"
+    assert post.call_args.kwargs["headers"] == {}
+    assert "vendor-secret" not in str(post.call_args.kwargs["headers"])

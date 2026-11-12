@@ -198,6 +198,28 @@ class TestProviderComplete:
 
 
 # ---------------------------------------------------------------------------
+# Provider._resolve_credentials / _address_override
+# ---------------------------------------------------------------------------
+
+
+class TestResolveCredentials:
+    def test_resolves_required_env_without_address(self, fake_provider):
+        assert fake_provider._resolve_credentials(_make_request()) == {
+            "FAKE_API_KEY": "test-key-123"
+        }
+
+    def test_skips_required_env_on_address_override(self, fake_provider, monkeypatch):
+        """A user-supplied @<address> neither needs nor receives the provider's own key."""
+        monkeypatch.delenv("FAKE_API_KEY", raising=False)
+        request = _make_request(model_id="m@192.168.1.1:8000")
+        assert fake_provider._resolve_credentials(request) == {}
+
+    def test_address_override(self, fake_provider):
+        assert fake_provider._address_override("m@host:1") == "host:1"
+        assert fake_provider._address_override("m") is None
+
+
+# ---------------------------------------------------------------------------
 # Provider._make_request — HTTP POST wrapper with error mapping
 # ---------------------------------------------------------------------------
 
@@ -441,19 +463,36 @@ class TestProviderDecide:
 
 
 class TestLoadProvider:
-    def test_loads_mistral(self):
+    def test_loads_vendor(self):
         cls = load_provider("mistral")
         assert cls.__name__ == "MistralProvider"
+        assert issubclass(cls, Provider)
+
+    def test_loads_shape(self):
+        cls = load_provider("chat")
+        assert cls.__name__ == "ChatProvider"
         assert issubclass(cls, Provider)
 
     def test_unknown_provider_raises_import_error(self):
         with pytest.raises(ModuleNotFoundError):
             load_provider("nonexistent_provider_xyz")
 
+    @pytest.mark.parametrize("removed", ["local", "laya"])
+    def test_removed_providers_raise_unknown_provider(self, removed):
+        with pytest.raises(ModuleNotFoundError, match="No lmdk provider named"):
+            load_provider(removed)
+
+    def test_shape_and_vendor_name_overlap_raises(self, monkeypatch):
+        import importlib.util
+
+        monkeypatch.setattr(importlib.util, "find_spec", lambda name: object())
+        with pytest.raises(ValueError, match="must not overlap"):
+            load_provider("chat")
+
 
 class TestResolveModel:
     def test_splits_provider_and_keeps_location(self):
-        name, model_id, cls = resolve_model("local:qwen:7b@localhost:4000")
-        assert name == "local"
+        name, model_id, cls = resolve_model("chat:qwen:7b@localhost:4000")
+        assert name == "chat"
         assert model_id == "qwen:7b@localhost:4000"
-        assert cls.__name__ == "LocalProvider"
+        assert cls.__name__ == "ChatProvider"

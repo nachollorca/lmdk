@@ -1,4 +1,4 @@
-"""Tests for lmdk.providers.local — LocalProvider."""
+"""Tests for lmdk.providers.shapes.chat — ChatProvider (the bare ``chat:`` shape)."""
 
 import json
 from collections.abc import Sequence
@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from lmdk.datatypes import CompletionRequest, Message, ThinkingEffort
 from lmdk.errors import ProviderError, RequestTooLargeError
 from lmdk.provider import RawResponse
-from lmdk.providers.local import LocalProvider
+from lmdk.providers.shapes.chat import ChatProvider
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -92,14 +92,14 @@ class Person(BaseModel):
 
 class TestParseModelId:
     def test_splits_model_and_location(self):
-        assert LocalProvider._parse_model_id(f"Qwen3.6-27B-BF16@{ENDPOINT}") == (
+        assert ChatProvider._parse_model_id(f"Qwen3.6-27B-BF16@{ENDPOINT}") == (
             "Qwen3.6-27B-BF16",
             ENDPOINT,
         )
 
     def test_missing_endpoint_raises(self):
-        with pytest.raises(ProviderError, match="must include an endpoint"):
-            LocalProvider._parse_model_id("no-endpoint")
+        with pytest.raises(ProviderError, match="must include an address"):
+            ChatProvider._parse_model_id("no-endpoint")
 
 
 # ---------------------------------------------------------------------------
@@ -109,12 +109,11 @@ class TestParseModelId:
 
 class TestBuildUrl:
     def test_assumes_http_when_no_scheme(self):
-        assert LocalProvider._build_url(ENDPOINT) == f"http://{ENDPOINT}/v1/chat/completions"
+        assert ChatProvider._build_url(ENDPOINT) == f"http://{ENDPOINT}/v1/chat/completions"
 
     def test_preserves_explicit_scheme_and_strips_trailing_slash(self):
         assert (
-            LocalProvider._build_url("https://host:8080/")
-            == "https://host:8080/v1/chat/completions"
+            ChatProvider._build_url("https://host:8080/") == "https://host:8080/v1/chat/completions"
         )
 
 
@@ -126,11 +125,11 @@ class TestBuildUrl:
 class TestAuthHeaders:
     def test_no_key_means_no_auth(self, monkeypatch):
         monkeypatch.delenv("LOCAL_API_KEY", raising=False)
-        assert LocalProvider._build_auth_headers({}) == {}
+        assert ChatProvider._build_auth_headers({}) == {}
 
     def test_key_produces_bearer(self, monkeypatch):
         monkeypatch.setenv("LOCAL_API_KEY", "secret")
-        assert LocalProvider._build_auth_headers({}) == {"Authorization": "Bearer secret"}
+        assert ChatProvider._build_auth_headers({}) == {"Authorization": "Bearer secret"}
 
 
 # ---------------------------------------------------------------------------
@@ -142,7 +141,7 @@ class TestSendRequest:
     def test_basic_text_completion(self):
         mock_resp = _mock_chat_response(content="Hello there!")
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = LocalProvider._send_completion_request(_make_request(), credentials={})
+            result = ChatProvider._send_completion_request(_make_request(), credentials={})
 
         assert isinstance(result, RawResponse)
         assert result.content == "Hello there!"
@@ -165,7 +164,7 @@ class TestSendRequest:
         mock_resp = _mock_chat_response()
         request = _make_request(generation_kwargs={"temperature": 0.9, "max_tokens": 10})
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            LocalProvider._send_completion_request(request, credentials={})
+            ChatProvider._send_completion_request(request, credentials={})
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         assert payload["temperature"] == 0.9
@@ -176,7 +175,7 @@ class TestSendRequest:
         mock_resp = _mock_chat_response(content=content)
         request = _make_request(output_schema=Person)
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            result = LocalProvider._send_completion_request(request, credentials={})
+            result = ChatProvider._send_completion_request(request, credentials={})
 
         assert result.content == content
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
@@ -193,10 +192,10 @@ class TestSendRequest:
 
 class TestExtractText:
     def test_plain_string(self):
-        assert LocalProvider._extract_text("hello") == "hello"
+        assert ChatProvider._extract_text("hello") == "hello"
 
     def test_none_returns_empty(self):
-        assert LocalProvider._extract_text(None) == ""
+        assert ChatProvider._extract_text(None) == ""
 
     def test_list_keeps_only_text_chunks(self):
         content = [
@@ -204,17 +203,17 @@ class TestExtractText:
             {"type": "text", "text": "the "},
             {"type": "text", "text": "answer"},
         ]
-        assert LocalProvider._extract_text(content) == "the answer"
+        assert ChatProvider._extract_text(content) == "the answer"
 
 
 class TestExtractThinking:
     def test_reasoning_content_field(self):
         message = {"content": "answer", "reasoning_content": "let me think..."}
-        assert LocalProvider._extract_thinking(message) == "let me think..."
+        assert ChatProvider._extract_thinking(message) == "let me think..."
 
     def test_reasoning_field(self):
         message = {"content": "answer", "reasoning": "let me think..."}
-        assert LocalProvider._extract_thinking(message) == "let me think..."
+        assert ChatProvider._extract_thinking(message) == "let me think..."
 
     def test_list_thinking_chunks(self):
         message = {
@@ -223,10 +222,10 @@ class TestExtractThinking:
                 {"type": "text", "text": "done"},
             ]
         }
-        assert LocalProvider._extract_thinking(message) == "step 1. "
+        assert ChatProvider._extract_thinking(message) == "step 1. "
 
     def test_absent_returns_none(self):
-        assert LocalProvider._extract_thinking({"content": "plain answer"}) is None
+        assert ChatProvider._extract_thinking({"content": "plain answer"}) is None
 
 
 class TestExtractThinkingTokens:
@@ -236,14 +235,14 @@ class TestExtractThinkingTokens:
             "completion_tokens": 20,
             "completion_tokens_details": {"reasoning_tokens": 15},
         }
-        assert LocalProvider._extract_thinking_tokens(usage) == 15
+        assert ChatProvider._extract_thinking_tokens(usage) == 15
 
     def test_thinking_tokens_alias(self):
         usage = {"completion_tokens_details": {"thinking_tokens": 8}}
-        assert LocalProvider._extract_thinking_tokens(usage) == 8
+        assert ChatProvider._extract_thinking_tokens(usage) == 8
 
     def test_absent_returns_zero(self):
-        assert LocalProvider._extract_thinking_tokens({}) == 0
+        assert ChatProvider._extract_thinking_tokens({}) == 0
 
 
 class TestSendRequestThinking:
@@ -257,7 +256,7 @@ class TestSendRequestThinking:
             },
         )
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            result = LocalProvider._send_completion_request(_make_request(), credentials={})
+            result = ChatProvider._send_completion_request(_make_request(), credentials={})
 
         assert result.content == "42"
         assert result.thinking == "counting..."
@@ -270,7 +269,7 @@ class TestSendRequestThinking:
         ]
         mock_resp = _mock_chat_response(message={"content": content})
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            result = LocalProvider._send_completion_request(_make_request(), credentials={})
+            result = ChatProvider._send_completion_request(_make_request(), credentials={})
 
         assert result.content == "ok"
         assert result.thinking == "hmm"
@@ -286,14 +285,14 @@ class TestStreamResponse:
     def test_yields_tokens(self):
         mock_resp = _mock_stream_response(["Hello", " ", "world"])
         with patch("lmdk.provider.requests.post", return_value=mock_resp):
-            tokens = list(LocalProvider._stream_response(_make_request(), credentials={}))
+            tokens = list(ChatProvider._stream_response(_make_request(), credentials={}))
 
         assert tokens == ["Hello", " ", "world"]
 
     def test_stream_flag_in_payload(self):
         mock_resp = _mock_stream_response(["ok"])
         with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
-            list(LocalProvider._stream_response(_make_request(), credentials={}))
+            list(ChatProvider._stream_response(_make_request(), credentials={}))
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         assert payload["stream"] is True
@@ -323,7 +322,38 @@ class TestErrorClassification:
             patch("lmdk.provider.requests.post", return_value=mock_resp),
             pytest.raises(RequestTooLargeError) as exc_info,
         ):
-            LocalProvider._send_completion_request(_make_request(), credentials={})
+            ChatProvider._send_completion_request(_make_request(), credentials={})
 
         assert exc_info.value.status_code == 413
         assert "exceeds the available context size" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# Registry & end-to-end addressing
+# ---------------------------------------------------------------------------
+
+
+class TestRegistry:
+    def test_load_provider_finds_shape(self):
+        from lmdk.provider import load_provider
+
+        assert load_provider("chat") is ChatProvider
+
+    def test_resolve_model(self):
+        from lmdk.provider import resolve_model
+
+        name, model_id, cls = resolve_model("chat:qwen:7b@localhost:4000")
+        assert name == "chat"
+        assert model_id == "qwen:7b@localhost:4000"
+        assert cls is ChatProvider
+
+
+class TestSendRequestAuth:
+    def test_local_api_key_sent_on_request(self, monkeypatch):
+        monkeypatch.setenv("LOCAL_API_KEY", "secret")
+        mock_resp = _mock_chat_response()
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            ChatProvider._send_completion_request(_make_request(), credentials={})
+
+        assert mock_post.call_args.kwargs["headers"] == {"Authorization": "Bearer secret"}
+        assert mock_post.call_args.args[0] == f"http://{ENDPOINT}/v1/chat/completions"

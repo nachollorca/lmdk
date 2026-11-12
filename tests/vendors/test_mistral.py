@@ -1,4 +1,4 @@
-"""Tests for lmdk.providers.mistral — MistralProvider."""
+"""Tests for lmdk.providers.vendors.mistral — MistralProvider."""
 
 import json
 from collections.abc import Sequence
@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from lmdk.datatypes import CompletionRequest, Message, ThinkingEffort
 from lmdk.provider import RawResponse
-from lmdk.providers.mistral import MistralProvider
+from lmdk.providers.vendors.mistral import MistralProvider
 
 MODEL_ID = "mistral-small-2603"
 
@@ -417,3 +417,44 @@ class TestStreamResponse:
             )
 
         assert tokens == ["ok"]
+
+
+# ---------------------------------------------------------------------------
+# @<address> override (self-hosted OpenAI-compatible server)
+# ---------------------------------------------------------------------------
+
+
+class TestAddressOverride:
+    def test_hits_address_with_local_key_and_no_vendor_env(self, monkeypatch):
+        monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+        monkeypatch.setenv("LOCAL_API_KEY", "local-secret")
+        mock_resp = _mock_chat_response()
+        request = _make_request(model_id="mistral-small-2603@192.168.10.51:4000")
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            MistralProvider._send_completion_request(request, credentials={})
+
+        assert mock_post.call_args.args[0] == "http://192.168.10.51:4000/v1/chat/completions"
+        assert mock_post.call_args.kwargs["headers"] == {"Authorization": "Bearer local-secret"}
+        # the address is stripped from the model sent to the server
+        assert mock_post.call_args.kwargs["json"]["model"] == "mistral-small-2603"
+
+    def test_vendor_key_never_sent_to_address(self, monkeypatch):
+        monkeypatch.setenv("MISTRAL_API_KEY", "vendor-secret")
+        monkeypatch.delenv("LOCAL_API_KEY", raising=False)
+        mock_resp = _mock_chat_response()
+        request = _make_request(model_id="mistral-small-2603@10.0.0.5:4000")
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            MistralProvider._send_completion_request(request, credentials={})
+
+        assert mock_post.call_args.kwargs["headers"] == {}
+
+    def test_default_location_unchanged(self, monkeypatch):
+        monkeypatch.setenv("MISTRAL_API_KEY", "vendor-secret")
+        mock_resp = _mock_chat_response()
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            MistralProvider._send_completion_request(
+                _make_request(), credentials={"MISTRAL_API_KEY": "vendor-secret"}
+            )
+
+        assert mock_post.call_args.args[0] == "https://api.mistral.ai/v1/chat/completions"
+        assert mock_post.call_args.kwargs["headers"] == {"Authorization": "Bearer vendor-secret"}

@@ -3,6 +3,7 @@
 import dataclasses
 import datetime
 import importlib
+import importlib.util
 import json
 import os
 import random
@@ -77,8 +78,8 @@ class Provider(ABC):
     Subclasses may define class attribute ``required_env``:
     A string or tuple of environment variable names the provider needs. For example:
     ``"MISTRAL_API_KEY"`` or ``("VERTEX_API_KEY", "GCP_PROJECT_ID")``). Providers
-    that need no credentials (e.g. a local OpenAI-compatible server) can leave it
-    as the default empty tuple.
+    that need no credentials (e.g. a shape addressed via ``@<address>``) can leave
+    it as the default empty tuple.
 
     The main methods in the base class (``complete`` and ``decide``) handle:
         - credential resolution (``_resolve_credentials``)
@@ -98,6 +99,11 @@ class Provider(ABC):
         - decision (encoders): ``_send_decision_request`` to build the HTTP body, call
             ``Provider._make_request`` and parse the label probabilities
     Hooks a provider does not implement raise ``NotImplementedError``.
+
+    Location handling: the ``@`` suffix of a model identifier is either an
+    address (``@<host>[:<port>]``, see :func:`_address_override`) or a region
+    (bedrock, vertex). On a user-supplied address the provider's own key is
+    neither required nor sent.
     """
 
     # zero, one, or multiple required environment variables (empty = none required)
@@ -125,7 +131,7 @@ class Provider(ABC):
 
         See ``lmdk.completion.complete`` for parameter docs and defaults.
         """
-        credentials = cls._resolve_credentials()
+        credentials = cls._resolve_credentials(request)
 
         if stream:
             return cls._stream_response(request, credentials)
@@ -165,7 +171,7 @@ class Provider(ABC):
 
         See ``lmdk.decision.decide`` for parameter docs.
         """
-        credentials = cls._resolve_credentials()
+        credentials = cls._resolve_credentials(request)
         start = time.perf_counter()
         response = cls._send_decision_request(request, credentials)
         probabilities = {
@@ -314,14 +320,33 @@ class Provider(ABC):
         return STATUS_TO_ERROR.get(status_code, ProviderError), status_code
 
     @classmethod
-    def _resolve_credentials(cls) -> dict[str, str]:
+    def _address_override(cls, model_id: str) -> str | None:
+        """Return the ``@<address>`` suffix when it is a user-supplied server address.
+
+        The base implementation treats any ``@`` suffix as an address.
+        Providers whose ``@`` means something else (a region, e.g. bedrock and
+        vertex) override this to return ``None``.
+        """
+        if "@" in model_id:
+            return model_id.rsplit("@", 1)[1]
+        return None
+
+    @classmethod
+    def _resolve_credentials(cls, request: CompletionRequest | DecisionRequest) -> dict[str, str]:
         """Read all required environment variables.
 
         Returns a ``{var_name: value}`` dict for every name listed in
         ``required_env``.
 
+        When the model id carries a user-supplied ``@<address>``
+        (:func:`_address_override`), the provider's own key is neither required
+        nor ever sent to that address, so no credentials are resolved.
+
         Raises :class:`AuthenticationError` when any variable is unset or empty.
         """
+        if cls._address_override(request.model_id) is not None:
+            return {}
+
         # Normalize to a tuple if a single string is provided
         vars_to_resolve = (
             (cls.required_env,) if isinstance(cls.required_env, str) else cls.required_env
@@ -343,14 +368,32 @@ class Provider(ABC):
 def load_provider(name: str) -> type[Provider]:
     """Gets the appropriate Provider class for the given provider name.
 
-    Imports ``<Name>Provider`` from ``lmdk.providers.<name>``
-    (e.g. ``"mistral"`` -> ``MistralProvider``).
+    Looks up ``<Name>Provider`` in ``lmdk.providers.shapes.<name>`` first and
+    then in ``lmdk.providers.vendors.<name>`` (e.g. ``"chat"`` ->
+    ``ChatProvider``, ``"mistral"`` -> ``MistralProvider``). Shape and vendor
+    names must not overlap.
 
     Raises:
-        ImportError: If no module matches *name*.
+        ModuleNotFoundError: If no shape or vendor matches *name*.
+        ValueError: If *name* matches both a shape and a vendor.
         AttributeError: If the module does not contain the expected class.
     """
-    module = importlib.import_module(f"lmdk.providers.{name}")
+    modules = [
+        f"lmdk.providers.{package}.{name}"
+        for package in ("shapes", "vendors")
+        if importlib.util.find_spec(f"lmdk.providers.{package}.{name}") is not None
+    ]
+    if len(modules) > 1:
+        raise ValueError(
+            f"Provider name '{name}' matches both a shape and a vendor: {', '.join(modules)}. "
+            "Shape and vendor names must not overlap."
+        )
+    if not modules:
+        raise ModuleNotFoundError(
+            f"No lmdk provider named '{name}' "
+            "(looked in lmdk.providers.shapes and lmdk.providers.vendors)."
+        )
+    module = importlib.import_module(modules[0])
     class_name = f"{name.capitalize()}Provider"
     return getattr(module, class_name)
 

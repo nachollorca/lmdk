@@ -1,6 +1,8 @@
-"""Provider for TypeSafe's System One API (``POST /v1/systemone``).
+"""The System One wire format (``/v1/systemone``), addressed via ``@<address>``.
 
-Each :class:`~lmdk.datatypes.Question` maps to one of TypeSafe's question types:
+System One is the decision-model (encoder) API used by TypeSafe's Jev and
+Fastino's GLiDE, and by self-hosted servers that copy it (e.g. ``laya-serve``).
+Each :class:`~lmdk.datatypes.Question` maps to one of its question types:
 
 - labels that are a yes/no (or true/false) pair -> ``noul``
 - ``is_ordered=True`` -> ``score`` (levels in label order)
@@ -8,15 +10,25 @@ Each :class:`~lmdk.datatypes.Question` maps to one of TypeSafe's question types:
 
 Answers are mapped back to ``{label: probability}`` for every type.
 
+The bare shape is addressed explicitly through the model identifier's ``@``
+suffix::
+
+    decide("systemone:english@192.168.10.51:8100", state=..., questions=...)
+
+The address is mandatory for the bare shape and ``http://`` is assumed when it
+has no scheme. Servers that gate access with a token may set the optional
+``LOCAL_API_KEY`` environment variable, which is sent as a ``Bearer``
+credential. The ``typesafe`` and ``fastino`` vendors subclass this shape with
+the hosted default locations and their own API keys.
+
 See https://docs.typesafe.ai/api.
 """
 
 from typing import Any
 
 from lmdk.datatypes import DecisionRequest, DecisionResponse, Question
-from lmdk.provider import Provider
+from lmdk.providers.shapes._base import ShapeProvider
 
-_BASE_URL = "https://api.typesafe.ai"
 _YES = {"yes", "true"}
 _NO = {"no", "false"}
 
@@ -42,19 +54,10 @@ def _from_wire(question: Question, answer: dict[str, Any]) -> dict[str, float]:
     return answer["probabilities"]
 
 
-class TypesafeProvider(Provider):
-    """Provider for TypeSafe's hosted System One models (e.g. ``typesafe:jev-latest``)."""
+class SystemoneProvider(ShapeProvider):
+    """Provider for any endpoint speaking the System One API (``/v1/systemone``)."""
 
-    required_env = "TYPESAFE_API_KEY"
-
-    @classmethod
-    def _build_auth_headers(cls, credentials: dict[str, str]) -> dict:
-        return {"Authorization": f"Bearer {credentials['TYPESAFE_API_KEY']}"}
-
-    @classmethod
-    def _parse_model_id(cls, model_id: str) -> tuple[str, str]:
-        """Return ``(model, base_url)``. Overridden by self-hosted providers."""
-        return model_id, _BASE_URL
+    path = "/v1/systemone"
 
     @classmethod
     def _score_criteria(cls, labels: dict[str, str]) -> list[Any]:
@@ -80,14 +83,14 @@ class TypesafeProvider(Provider):
     def _send_decision_request(
         cls, request: DecisionRequest, credentials: dict[str, str]
     ) -> DecisionResponse:
-        model, base_url = cls._parse_model_id(request.model_id)
+        model, location = cls._parse_model_id(request.model_id)
         body = {
             "model": model,
             "state": request.state,
             "questions": {name: cls._to_wire(q) for name, q in request.questions.items()},
         }
         response = cls._make_request(
-            f"{base_url}/v1/systemone", json=body, headers=cls._build_auth_headers(credentials)
+            cls._build_url(location), json=body, headers=cls._build_auth_headers(credentials)
         )
         data = response.json()
         usage = data.get("usage") or {}

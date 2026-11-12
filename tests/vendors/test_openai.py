@@ -1,4 +1,4 @@
-"""Tests for lmdk.providers.openai — OpenaiProvider."""
+"""Tests for lmdk.providers.vendors.openai — OpenaiProvider."""
 
 import json
 from collections.abc import Sequence
@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from lmdk.datatypes import CompletionRequest, Message, ThinkingEffort
 from lmdk.provider import RawResponse
-from lmdk.providers.openai import OPENAI_API_URL, OpenAIProvider, OpenaiProvider
+from lmdk.providers.vendors.openai import OPENAI_API_URL, OpenAIProvider, OpenaiProvider
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -445,3 +445,33 @@ class TestStreamResponse:
             )
 
         assert tokens == ["ok"]
+
+
+# ---------------------------------------------------------------------------
+# @<address> override (self-hosted Responses-compatible server)
+# ---------------------------------------------------------------------------
+
+
+class TestAddressOverride:
+    def test_hits_address_with_local_key(self, monkeypatch):
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.setenv("LOCAL_API_KEY", "local-secret")
+        mock_resp = _mock_chat_response()
+        request = _make_request(model_id="gpt-5.5@192.168.10.51:8000")
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            OpenaiProvider._send_completion_request(request, credentials={})
+
+        assert mock_post.call_args.args[0] == "http://192.168.10.51:8000/v1/responses"
+        assert mock_post.call_args.kwargs["headers"] == {"Authorization": "Bearer local-secret"}
+        assert mock_post.call_args.kwargs["json"]["model"] == "gpt-5.5"
+
+    def test_default_location_unchanged(self, monkeypatch):
+        monkeypatch.delenv("LOCAL_API_KEY", raising=False)
+        mock_resp = _mock_chat_response()
+        with patch("lmdk.provider.requests.post", return_value=mock_resp) as mock_post:
+            OpenaiProvider._send_completion_request(
+                _make_request(), credentials={"OPENAI_API_KEY": "sk-test"}
+            )
+
+        assert mock_post.call_args.args[0] == OPENAI_API_URL
+        assert mock_post.call_args.kwargs["headers"] == {"Authorization": "Bearer sk-test"}

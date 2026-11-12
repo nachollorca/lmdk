@@ -1,4 +1,11 @@
-"""Implements the provider to use models hosted in GCP Vertex API."""
+"""Vendor for models hosted in the GCP Vertex API (Gemini).
+
+Vertex stays directly on :class:`~lmdk.provider.Provider`: nobody self-hosts its
+shape and its URL format is Vertex-specific, so there is no ``messages``/``chat``
+shape underneath. Its ``@`` suffix is a **region**, not an address (e.g.
+``vertex:gemini-2.5-flash@europe-west4``), so the Vertex API key is always sent,
+as today.
+"""
 
 import json
 from collections.abc import Iterator
@@ -42,6 +49,11 @@ class VertexProvider(Provider):
         return {"x-goog-api-key": credentials["VERTEX_API_KEY"]}
 
     # ── Model / location parsing ──────────────────────────────────────────
+
+    @classmethod
+    def _address_override(cls, model_id: str) -> str | None:
+        """Vertex's ``@`` suffix is a region, not a user-supplied address."""
+        return None
 
     @classmethod
     def _parse_model_id(cls, model_id: str) -> tuple[str, str]:
