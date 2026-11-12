@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v3.0.0 (2026-11-12)
+
+### Features
+
+- **providers**: Restructure providers into shapes and vendors
+  ([`cf36dba`](https://github.com/nachollorca/lmdk/commit/cf36dba44d8fec09b9a39d43cddd6827ee5b1bfc))
+
+### Breaking Changes
+
+- **providers**: Local: is removed (use chat:<model>@<host>), laya: is removed (use
+  systemone:<model>@<host>), and LAYA_API_KEY is replaced by LOCAL_API_KEY. Major version bump.
+
+
 ## v2.15.0 (2026-11-11)
 
 ### Features
