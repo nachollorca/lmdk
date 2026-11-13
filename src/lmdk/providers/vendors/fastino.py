@@ -17,6 +17,7 @@ Differences from TypeSafe per https://docs.fastino.ai/inference/systemone:
 - Score ``criteria`` is an ordered array of level descriptions, not label/description objects
 - retry ``425`` (model warming), ``429`` and ``503`` with bounded backoff
 - use a read timeout of at least 300 seconds
+- accepts ``store: false`` to keep the request out of storage (TypeSafe rejects it)
 """
 
 from typing import Any
@@ -34,6 +35,8 @@ class FastinoProvider(SystemoneProvider):
     base_url = FASTINO_BASE_URL
     retry_statuses = frozenset({425, 429, 503})
     request_timeout = 300.0
+    # The state is often personal data (a CV, a mailbox); don't leave it on their side.
+    store_requests = False
 
     @classmethod
     def _key_headers(cls, api_key: str) -> dict:

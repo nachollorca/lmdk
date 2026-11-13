@@ -4,7 +4,7 @@ from typing import ClassVar
 
 import pytest
 
-from lmdk import Question, decide
+from lmdk import Question, decide, decide_batch
 from lmdk.datatypes import DecisionResponse
 from lmdk.errors import AllModelsFailedError
 from lmdk.provider import Provider
@@ -79,3 +79,50 @@ def test_all_models_fail_raises(provider):
     with pytest.raises(AllModelsFailedError) as exc_info:
         decide(["fake:a", "fake:b"], state="Buy now", questions=QUESTIONS)
     assert set(exc_info.value.errors) == {"fake:a", "fake:b"}
+
+
+# ---------------------------------------------------------------------------
+# decide_batch
+# ---------------------------------------------------------------------------
+
+
+def test_batch_results_in_state_order(provider):
+    batch = decide_batch(
+        "fake:m", state_list=[{"i": 1}, {"i": 2}, {"i": 3}], questions=QUESTIONS, max_workers=3
+    )
+    assert len(batch) == 3
+    assert sorted(r.state["i"] for r in provider.requests) == [1, 2, 3]
+    assert [r.probabilities for r in batch.responses] == [{"spam": {"yes": 0.9, "no": 0.1}}] * 3
+    assert batch.errors == []
+
+
+def test_batch_captures_per_state_exceptions(provider, monkeypatch):
+    def fail_on_two(cls, request, credentials):
+        if request.state == {"i": 2}:
+            raise RuntimeError("bad state")
+        return DecisionResponse(
+            probabilities={"spam": {"yes": 0.9, "no": 0.1}}, input_tokens=3, output_tokens=1
+        )
+
+    monkeypatch.setattr(DecideProvider, "_send_decision_request", classmethod(fail_on_two))
+    batch = decide_batch("fake:m", state_list=[{"i": 1}, {"i": 2}], questions=QUESTIONS)
+
+    assert isinstance(batch[0], DecisionResponse)
+    assert isinstance(batch[1], RuntimeError)
+    assert len(batch.responses) == 1
+    assert len(batch.errors) == 1
+
+
+def test_batch_aggregates_tokens_over_successes_only(provider, monkeypatch):
+    def half_fail(cls, request, credentials):
+        if request.state == {"i": 2}:
+            raise RuntimeError("bad state")
+        return DecisionResponse(
+            probabilities={"spam": {"yes": 0.9, "no": 0.1}}, input_tokens=10, output_tokens=2
+        )
+
+    monkeypatch.setattr(DecideProvider, "_send_decision_request", classmethod(half_fail))
+    batch = decide_batch("fake:m", state_list=[{"i": 1}, {"i": 2}, {"i": 3}], questions=QUESTIONS)
+
+    assert batch.input_tokens == 20
+    assert batch.output_tokens == 4
