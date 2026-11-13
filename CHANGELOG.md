@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v3.1.0 (2026-11-13)
+
+### Bug Fixes
+
+- **decide9**: Account for store requests
+  ([`c9bf806`](https://github.com/nachollorca/lmdk/commit/c9bf806f6be4c951a8cc7ba184a1292f342779a5))
+
+### Features
+
+- **decision**: Abstract same question over many states
+  ([`a285d31`](https://github.com/nachollorca/lmdk/commit/a285d31b361627d65a1688b5a34157188ccc4c63))
+
+
 ## v3.0.0 (2026-11-12)
 
 ### Features
