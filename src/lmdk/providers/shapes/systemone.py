@@ -58,6 +58,9 @@ class SystemoneProvider(ShapeProvider):
     """Provider for any endpoint speaking the System One API (``/v1/systemone``)."""
 
     path = "/v1/systemone"
+    # Send ``store`` to keep the state out of (or in) the server's storage. ``None``
+    # omits the field: only servers that document it accept it.
+    store_requests: bool | None = None
 
     @classmethod
     def _score_criteria(cls, labels: dict[str, str]) -> list[Any]:
@@ -84,11 +87,13 @@ class SystemoneProvider(ShapeProvider):
         cls, request: DecisionRequest, credentials: dict[str, str]
     ) -> DecisionResponse:
         model, location = cls._parse_model_id(request.model_id)
-        body = {
+        body: dict[str, Any] = {
             "model": model,
             "state": request.state,
             "questions": {name: cls._to_wire(q) for name, q in request.questions.items()},
         }
+        if cls.store_requests is not None:
+            body["store"] = cls.store_requests
         response = cls._make_request(
             cls._build_url(location), json=body, headers=cls._build_auth_headers(credentials)
         )
