@@ -6,13 +6,14 @@ from lmdk.datatypes import (
     CompletionBatch,
     CompletionRequest,
     CompletionResponse,
+    DecisionBatch,
     DecisionResponse,
     Message,
     Question,
     ThinkingEffort,
     UserMessage,
 )
-from lmdk.decision import decide
+from lmdk.decision import decide, decide_batch
 from lmdk.observe import CompletionObserver, CompletionRecord, observe
 from lmdk.utils import render_template
 
@@ -23,6 +24,7 @@ __all__ = [
     "CompletionRecord",
     "CompletionRequest",
     "CompletionResponse",
+    "DecisionBatch",
     "DecisionResponse",
     "Message",
     "Question",
@@ -31,6 +33,7 @@ __all__ = [
     "complete",
     "complete_batch",
     "decide",
+    "decide_batch",
     "observe",
     "render_template",
 ]

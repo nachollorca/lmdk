@@ -270,3 +270,59 @@ class DecisionResponse:
     input_tokens: int
     output_tokens: int
     latency: float = 0.0
+
+
+@dataclass(frozen=True)
+class DecisionBatch:
+    """An aggregate of multiple decision outcomes.
+
+    Use this when you fan one set of questions out over many states (e.g. via
+    ``decide_batch``): scoring a collection means scoring each item on its own
+    and sorting in code, not asking about all items in one request.
+
+    Each entry in ``results`` is either a :class:`DecisionResponse` on success
+    or the ``Exception`` that was raised for that state. The order matches the
+    order of states passed to ``decide_batch``. Iterating or indexing the batch
+    iterates ``results`` directly.
+
+    Aggregations are computed over **successful** responses only.
+
+    Attributes:
+        results: The per-state outcomes, each a ``DecisionResponse`` or ``Exception``.
+    """
+
+    results: list[DecisionResponse | Exception] = field(default_factory=list)
+
+    def __iter__(self) -> Iterator[DecisionResponse | Exception]:
+        return iter(self.results)
+
+    def __len__(self) -> int:
+        return len(self.results)
+
+    def __getitem__(self, index: int) -> DecisionResponse | Exception:
+        return self.results[index]
+
+    @property
+    def responses(self) -> list[DecisionResponse]:
+        """The successful responses, in original input order."""
+        return [r for r in self.results if isinstance(r, DecisionResponse)]
+
+    @property
+    def errors(self) -> list[Exception]:
+        """The exceptions raised for failed states, in original input order."""
+        return [r for r in self.results if isinstance(r, Exception)]
+
+    @property
+    def input_tokens(self) -> int:
+        """Total input tokens across successful responses."""
+        return sum(r.input_tokens for r in self.responses)
+
+    @property
+    def output_tokens(self) -> int:
+        """Total output tokens across successful responses."""
+        return sum(r.output_tokens for r in self.responses)
+
+    @property
+    def latency(self) -> float:
+        """The slowest successful response's latency (the batch is bounded by its tail)."""
+        return max((r.latency for r in self.responses), default=0.0)
